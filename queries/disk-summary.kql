@@ -1,0 +1,39 @@
+let Lookback = 24h;
+InsightsMetrics
+| where TimeGenerated > ago(Lookback)
+| where Namespace == 'LogicalDisk'
+| extend Mount = tostring(todynamic(Tags)['vm.azm.ms/mountId'])
+| extend DiskSizeMB = todouble(todynamic(Tags)['vm.azm.ms/diskSizeMB'])
+| where isnotempty(Mount)
+| where Mount !startswith '/snap/' and Mount !startswith '/sys/'
+| summarize
+    AvgIOPS = avgif(Val, Name == 'TransfersPerSecond'),
+    PeakIOPS = maxif(Val, Name == 'TransfersPerSecond'),
+    AvgThroughputMBps = avgif(Val, Name == 'BytesPerSecond') / 1024 / 1024,
+    PeakThroughputMBps = maxif(Val, Name == 'BytesPerSecond') / 1024 / 1024,
+    AvgLatencyMs = avgif(Val, Name == 'TransferLatencyMs'),
+    PeakLatencyMs = maxif(Val, Name == 'TransferLatencyMs'),
+    LowestFreePercent = minif(Val, Name == 'FreeSpacePercentage'),
+    DiskSizeMB = max(DiskSizeMB),
+    LastSeen = max(TimeGenerated)
+  by Computer, Mount, _ResourceId
+| extend ResourceType = case(
+    _ResourceId has '/microsoft.hybridcompute/machines/', 'Azure Arc',
+    _ResourceId has '/microsoft.compute/virtualmachines/', 'Azure VM',
+    'Other')
+| extend UsedPercent = 100.0 - LowestFreePercent
+| project
+    Computer,
+    ResourceType,
+    Mount,
+    DiskSizeGB = round(DiskSizeMB / 1024, 1),
+    UsedPercent = round(UsedPercent, 1),
+    AvgIOPS = round(AvgIOPS, 1),
+    PeakIOPS = round(PeakIOPS, 1),
+    AvgThroughputMBps = round(AvgThroughputMBps, 2),
+    PeakThroughputMBps = round(PeakThroughputMBps, 2),
+    AvgLatencyMs = round(AvgLatencyMs, 2),
+    PeakLatencyMs = round(PeakLatencyMs, 2),
+    LastSeen,
+    ResourceId = _ResourceId
+| order by PeakIOPS desc

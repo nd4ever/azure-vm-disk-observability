@@ -1,0 +1,408 @@
+{
+  "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json",
+  "version": "Notebook/1.0",
+  "isLocked": false,
+  "fallbackResourceIds": [
+    "Azure Monitor"
+  ],
+  "items": [
+    {
+      "type": 1,
+      "name": "Overview",
+      "content": {
+        "json": "# VM Disk Observability\n\nUse the numeric table to rank disks across Azure Arc and Azure VMs, then narrow the charts with the machine and mount filters. Guest metrics are sourced from VM Insights. Native Azure VM charts use platform metrics split by LUN."
+      }
+    },
+    {
+      "type": 9,
+      "name": "Parameters",
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "parameters": [
+          {
+            "id": "038ef9ac-c8ec-4386-a7d4-0c5bfd9b8ee8",
+            "version": "KqlParameterItem/1.0",
+            "name": "Workspace",
+            "label": "Log Analytics workspace",
+            "type": 5,
+            "isRequired": true,
+            "isHiddenWhenLocked": true,
+            "typeSettings": {
+              "resourceTypeFilter": {
+                "microsoft.operationalinsights/workspaces": true
+              }
+            },
+            "value": "__WORKSPACE_RESOURCE_ID__"
+          },
+          {
+            "id": "b1e819f8-6129-4b89-a101-f0f75ec5cb71",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "label": "Time range",
+            "type": 4,
+            "isRequired": true,
+            "typeSettings": {
+              "selectableValues": [
+                {
+                  "durationMs": 3600000
+                },
+                {
+                  "durationMs": 14400000
+                },
+                {
+                  "durationMs": 43200000
+                },
+                {
+                  "durationMs": 86400000
+                },
+                {
+                  "durationMs": 172800000
+                },
+                {
+                  "durationMs": 259200000
+                },
+                {
+                  "durationMs": 604800000
+                },
+                {
+                  "durationMs": 1209600000
+                },
+                {
+                  "durationMs": 2592000000
+                }
+              ],
+              "allowCustom": true
+            },
+            "value": {
+              "durationMs": 86400000
+            }
+          },
+          {
+            "id": "b59e63c9-2645-45fc-9199-2cc175fbd35c",
+            "version": "KqlParameterItem/1.0",
+            "name": "Computer",
+            "label": "Machines",
+            "type": 2,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "InsightsMetrics\n| where TimeGenerated {TimeRange}\n| where Namespace == 'LogicalDisk'\n| distinct value = Computer, label = Computer\n| order by label asc",
+            "queryType": 0,
+            "resourceType": "microsoft.operationalinsights/workspaces",
+            "crossComponentResources": [
+              "{Workspace}"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "selectAllValue": "*",
+              "showDefault": false
+            },
+            "value": [
+              "value::all"
+            ]
+          },
+          {
+            "id": "1ce4aff5-4bbb-4c8e-bf55-d908207de653",
+            "version": "KqlParameterItem/1.0",
+            "name": "Mount",
+            "label": "Mounts",
+            "type": 2,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "InsightsMetrics\n| where TimeGenerated {TimeRange}\n| where Namespace == 'LogicalDisk'\n| where '*' in ({Computer}) or Computer in ({Computer})\n| extend Mount = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| where isnotempty(Mount)\n| where Mount !startswith '/snap/' and Mount !startswith '/sys/'\n| distinct value = Mount, label = Mount\n| order by label asc",
+            "queryType": 0,
+            "resourceType": "microsoft.operationalinsights/workspaces",
+            "crossComponentResources": [
+              "{Workspace}"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ],
+              "selectAllValue": "*",
+              "showDefault": false
+            },
+            "value": [
+              "value::all"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": 9,
+      "name": "NativeVmParameter",
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "queryType": 1,
+        "resourceType": "microsoft.resourcegraph/resources",
+        "crossComponentResources": [
+          "value::all"
+        ],
+        "parameters": [
+          {
+            "id": "9e918449-4e35-4512-97ec-fe0930ab3237",
+            "version": "KqlParameterItem/1.0",
+            "name": "VirtualMachines",
+            "label": "Native Azure VM",
+            "type": 5,
+            "isRequired": true,
+            "multiSelect": true,
+            "query": "where type =~ 'microsoft.compute/virtualmachines'\n| order by name asc\n| project value = id, label = name, selected = id =~ '__NATIVE_VM_RESOURCE_ID__'",
+            "crossComponentResources": [
+              "value::all"
+            ],
+            "typeSettings": {
+              "resourceTypeFilter": {
+                "microsoft.compute/virtualmachines": true
+              },
+              "additionalResourceOptions": [
+                "value::all"
+              ]
+            },
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources",
+            "value": [
+              "value::all"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": 1,
+      "name": "HybridHeading",
+      "content": {
+        "json": "## Hybrid disk inventory\n\nThis section works for Azure Arc connected servers and native Azure VMs monitored by VM Insights. Values are grouped by guest logical disk or mount, not Azure LUN."
+      }
+    },
+    {
+      "type": 3,
+      "name": "DiskSummary",
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "InsightsMetrics\n| where TimeGenerated {TimeRange}\n| where Namespace == 'LogicalDisk'\n| extend Mount = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| extend DiskSizeMB = todouble(todynamic(Tags)['vm.azm.ms/diskSizeMB'])\n| where isnotempty(Mount)\n| where Mount !startswith '/snap/' and Mount !startswith '/sys/'\n| where '*' in ({Computer}) or Computer in ({Computer})\n| where '*' in ({Mount}) or Mount in ({Mount})\n| summarize AvgIOPS = avgif(Val, Name == 'TransfersPerSecond'), PeakIOPS = maxif(Val, Name == 'TransfersPerSecond'), AvgThroughputMBps = avgif(Val, Name == 'BytesPerSecond') / 1024 / 1024, PeakThroughputMBps = maxif(Val, Name == 'BytesPerSecond') / 1024 / 1024, AvgLatencyMs = avgif(Val, Name == 'TransferLatencyMs'), PeakLatencyMs = maxif(Val, Name == 'TransferLatencyMs'), LowestFreePercent = minif(Val, Name == 'FreeSpacePercentage'), DiskSizeMB = max(DiskSizeMB), LastSeen = max(TimeGenerated) by Computer, Mount, _ResourceId\n| extend ResourceType = case(_ResourceId has '/microsoft.hybridcompute/machines/', 'Azure Arc', _ResourceId has '/microsoft.compute/virtualmachines/', 'Azure VM', 'Other')\n| extend UsedPercent = 100.0 - LowestFreePercent\n| project Computer, ResourceType, Mount, DiskSizeGB = round(DiskSizeMB / 1024, 1), UsedPercent = round(UsedPercent, 1), AvgIOPS = round(AvgIOPS, 1), PeakIOPS = round(PeakIOPS, 1), AvgThroughputMBps = round(AvgThroughputMBps, 2), PeakThroughputMBps = round(PeakThroughputMBps, 2), AvgLatencyMs = round(AvgLatencyMs, 2), PeakLatencyMs = round(PeakLatencyMs, 2), LastSeen, ResourceId = _ResourceId\n| order by PeakIOPS desc",
+        "size": 0,
+        "title": "Per-disk performance and capacity",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspace}"
+        ],
+        "visualization": "table",
+        "gridSettings": {
+          "filter": true,
+          "showExportToExcel": true,
+          "rowLimit": 1000,
+          "formatters": [
+            {
+              "columnMatch": "Mount",
+              "formatter": 0,
+              "formatOptions": {
+                "customColumnWidthSetting": "26ch"
+              }
+            }
+          ],
+          "labelSettings": [
+            {
+              "columnId": "DiskSizeGB",
+              "label": "Size (GiB)"
+            },
+            {
+              "columnId": "UsedPercent",
+              "label": "Used (%)"
+            },
+            {
+              "columnId": "AvgThroughputMBps",
+              "label": "Avg throughput (MiB/s)"
+            },
+            {
+              "columnId": "PeakThroughputMBps",
+              "label": "Peak throughput (MiB/s)"
+            },
+            {
+              "columnId": "AvgLatencyMs",
+              "label": "Avg latency (ms)"
+            },
+            {
+              "columnId": "PeakLatencyMs",
+              "label": "Peak latency (ms)"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": 3,
+      "name": "IopsChart",
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "InsightsMetrics\n| where TimeGenerated {TimeRange}\n| where Namespace == 'LogicalDisk' and Name == 'TransfersPerSecond'\n| extend Mount = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| where isnotempty(Mount)\n| where Mount !startswith '/snap/' and Mount !startswith '/sys/'\n| where '*' in ({Computer}) or Computer in ({Computer})\n| where '*' in ({Mount}) or Mount in ({Mount})\n| summarize IOPS = avg(Val) by bin(TimeGenerated, 5m), Computer, Mount\n| extend Series = strcat(Computer, ' | ', Mount)\n| project TimeGenerated, Series, IOPS\n| order by TimeGenerated asc",
+        "size": 0,
+        "title": "Total IOPS by logical disk",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspace}"
+        ],
+        "visualization": "timechart"
+      }
+    },
+    {
+      "type": 3,
+      "name": "ThroughputChart",
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "InsightsMetrics\n| where TimeGenerated {TimeRange}\n| where Namespace == 'LogicalDisk' and Name == 'BytesPerSecond'\n| extend Mount = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| where isnotempty(Mount)\n| where Mount !startswith '/snap/' and Mount !startswith '/sys/'\n| where '*' in ({Computer}) or Computer in ({Computer})\n| where '*' in ({Mount}) or Mount in ({Mount})\n| summarize ThroughputMBps = avg(Val) / 1024 / 1024 by bin(TimeGenerated, 5m), Computer, Mount\n| extend Series = strcat(Computer, ' | ', Mount)\n| project TimeGenerated, Series, ThroughputMBps\n| order by TimeGenerated asc",
+        "size": 0,
+        "title": "Total throughput by logical disk (MiB/s)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspace}"
+        ],
+        "visualization": "timechart"
+      }
+    },
+    {
+      "type": 3,
+      "name": "LatencyChart",
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "InsightsMetrics\n| where TimeGenerated {TimeRange}\n| where Namespace == 'LogicalDisk' and Name == 'TransferLatencyMs'\n| extend Mount = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| where isnotempty(Mount)\n| where Mount !startswith '/snap/' and Mount !startswith '/sys/'\n| where '*' in ({Computer}) or Computer in ({Computer})\n| where '*' in ({Mount}) or Mount in ({Mount})\n| summarize LatencyMs = avg(Val) by bin(TimeGenerated, 5m), Computer, Mount\n| extend Series = strcat(Computer, ' | ', Mount)\n| project TimeGenerated, Series, LatencyMs\n| order by TimeGenerated asc",
+        "size": 0,
+        "title": "Average latency by logical disk (ms)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspace}"
+        ],
+        "visualization": "timechart"
+      }
+    },
+    {
+      "type": 3,
+      "name": "CapacityChart",
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "InsightsMetrics\n| where TimeGenerated {TimeRange}\n| where Namespace == 'LogicalDisk' and Name == 'FreeSpacePercentage'\n| extend Mount = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| where isnotempty(Mount)\n| where Mount !startswith '/snap/' and Mount !startswith '/sys/'\n| where '*' in ({Computer}) or Computer in ({Computer})\n| where '*' in ({Mount}) or Mount in ({Mount})\n| summarize UsedPercent = 100.0 - avg(Val) by bin(TimeGenerated, 15m), Computer, Mount\n| extend Series = strcat(Computer, ' | ', Mount)\n| project TimeGenerated, Series, UsedPercent\n| order by TimeGenerated asc",
+        "size": 0,
+        "title": "Filesystem capacity used by logical disk (%)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspace}"
+        ],
+        "visualization": "timechart"
+      }
+    },
+    {
+      "type": 1,
+      "name": "NativeHeading",
+      "content": {
+        "json": "## Native Azure VM platform metrics by LUN\n\nThese charts apply only to native Azure VMs. IOPS and bandwidth consumed percentages compare usage with the provisioned disk limit without combining read and write charts manually. Data Disk Latency is a preview metric and requires SCSI-attached disks; it is unavailable for NVMe-attached disks.\n\nSeries are split by Azure data-disk LUN, not by guest drive letter. Multiple LUNs can map to one guest volume when the operating system uses disk pooling, and NVMe-attached operating-system disks are not reported by these charts."
+      }
+    },
+    {
+      "type": 10,
+      "name": "LunIopsConsumed",
+      "content": {
+        "chartId": "65fcfe70-3c7a-40ac-a95d-f20dd78cd5fd",
+        "version": "MetricsItem/2.0",
+        "size": 0,
+        "chartType": 2,
+        "title": "Data disk IOPS consumed by LUN (%) \u2014 {VirtualMachines:label}",
+        "resourceIds": [
+          "{VirtualMachines}"
+        ],
+        "timeContext": {
+          "durationMs": 0
+        },
+        "timeContextFromParameter": "TimeRange",
+        "resourceType": "microsoft.compute/virtualmachines",
+        "resourceParameter": "VirtualMachines",
+        "metrics": [
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--Data Disk IOPS Consumed Percentage",
+            "aggregation": 4,
+            "splitBy": "LUN",
+            "splitBySortOrder": -1,
+            "splitByLimit": 50
+          }
+        ]
+      }
+    },
+    {
+      "type": 10,
+      "name": "LunBandwidthConsumed",
+      "content": {
+        "chartId": "7eaf38ca-bf69-47fa-a365-974393bd2ff3",
+        "version": "MetricsItem/2.0",
+        "size": 0,
+        "chartType": 2,
+        "title": "Data disk bandwidth consumed by LUN (%) \u2014 {VirtualMachines:label}",
+        "resourceIds": [
+          "{VirtualMachines}"
+        ],
+        "timeContext": {
+          "durationMs": 0
+        },
+        "timeContextFromParameter": "TimeRange",
+        "resourceType": "microsoft.compute/virtualmachines",
+        "resourceParameter": "VirtualMachines",
+        "metrics": [
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--Data Disk Bandwidth Consumed Percentage",
+            "aggregation": 4,
+            "splitBy": "LUN",
+            "splitBySortOrder": -1,
+            "splitByLimit": 50
+          }
+        ]
+      }
+    },
+    {
+      "type": 10,
+      "name": "LunLatency",
+      "content": {
+        "chartId": "8ad201df-ad35-4bc9-9e14-17d297049fb8",
+        "version": "MetricsItem/2.0",
+        "size": 0,
+        "chartType": 2,
+        "title": "Data disk latency by LUN (ms) \u2014 {VirtualMachines:label}",
+        "resourceIds": [
+          "{VirtualMachines}"
+        ],
+        "timeContext": {
+          "durationMs": 0
+        },
+        "timeContextFromParameter": "TimeRange",
+        "resourceType": "microsoft.compute/virtualmachines",
+        "resourceParameter": "VirtualMachines",
+        "metrics": [
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--Data Disk Latency",
+            "aggregation": 4,
+            "splitBy": "LUN",
+            "splitBySortOrder": -1,
+            "splitByLimit": 50
+          }
+        ]
+      }
+    }
+  ]
+}
