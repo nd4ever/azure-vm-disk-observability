@@ -1,0 +1,33 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Validate project",
+      "type": "npm",
+      "script": "validate",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Validate live KQL",
+      "type": "npm",
+      "script": "validate:live",
+      "problemMatcher": []
+    },
+    {
+      "label": "Deploy Azure Workbook",
+      "type": "npm",
+      "script": "deploy:workbook",
+      "problemMatcher": []
+    },
+    {
+      "label": "Import Grafana dashboard",
+      "type": "npm",
+      "script": "import:grafana",
+      "problemMatcher": []
+    }
+  ]
+}
