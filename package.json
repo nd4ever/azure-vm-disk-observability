@@ -1,7 +1,7 @@
 {
   "name": "azure-vm-disk-observability",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
   "scripts": {
     "validate": "pwsh -NoProfile -File ./scripts/Test-Project.ps1",
     "validate:live": "pwsh -NoProfile -File ./scripts/Test-Project.ps1 -Live",
