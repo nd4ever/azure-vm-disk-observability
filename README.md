@@ -84,6 +84,39 @@ The command prompts for:
 * Native Azure VM resource ID for LUN platform metrics
 * An existing Managed Grafana instance or a name for a new instance
 
+### Deployment inputs
+
+Run `npm run deploy` for interactive prompts, or pass the same values directly to
+`scripts/Deploy-Solution.ps1`. All referenced subscriptions must belong to the
+specified Microsoft Entra tenant. Resource IDs must be complete Azure Resource
+Manager IDs.
+
+| Parameter                       | Expected value                                                                        | Requirement and default                                                    |
+|---------------------------------|---------------------------------------------------------------------------------------|----------------------------------------------------------------------------|
+| `TenantId`                      | Microsoft Entra tenant GUID                                                           | Prompted; defaults to the current Azure CLI tenant                          |
+| `SubscriptionId`                | Deployment subscription GUID                                                          | Prompted; defaults to the current CLI subscription when the tenant matches  |
+| `ResourceGroupName`             | Resource group name                                                                   | Prompted; defaults to `vm-disk-observability-rg`                            |
+| `Location`                      | Azure region name, such as `eastus`                                                    | Required only when the resource group must be created                       |
+| `LogAnalyticsWorkspaceResourceId` | `/subscriptions/<subscription>/resourceGroups/<group>/providers/Microsoft.OperationalInsights/workspaces/<workspace>` | Required                                                                   |
+| `NativeVmResourceId`            | `/subscriptions/<subscription>/resourceGroups/<group>/providers/Microsoft.Compute/virtualMachines/<vm>` | Required                                                                   |
+| `GrafanaResourceId`             | Full resource ID of an existing `Microsoft.Dashboard/grafana` resource                | Optional; selects an existing instance directly                            |
+| `GrafanaName`                   | Existing or new Managed Grafana resource name                                          | Optional; used to find or create an instance                               |
+| `WorkbookDisplayName`           | Azure Monitor Workbook display name                                                   | Optional; defaults to `VM Disk Observability`                               |
+| `GrafanaAdminPrincipalId`       | Microsoft Entra object ID for a user or service principal                             | Optional; defaults to the deploying principal for a new Grafana instance   |
+| `GrafanaAdminPrincipalType`     | `User` or `ServicePrincipal`                                                           | Required when `GrafanaAdminPrincipalId` is supplied                         |
+| `SkipRoleAssignments`           | PowerShell switch                                                                     | Optional; skips Grafana and Monitoring Reader role assignments              |
+| `SkipGrafanaImport`             | PowerShell switch                                                                     | Optional; deploys Azure resources without importing the Grafana dashboard   |
+
+If neither Grafana parameter is supplied, the script displays instances in the
+deployment subscription and prompts you to select one or create a new instance. If
+multiple instances match `GrafanaName`, supply `GrafanaResourceId` to disambiguate.
+
+The workbook-only command uses `TenantId`, `SubscriptionId`, `ResourceGroupName`,
+`LogAnalyticsWorkspaceResourceId`, and `NativeVmResourceId`. Its optional
+`DeploymentName` defaults to `vm-disk-observability`. The standalone Grafana import
+uses `TenantId`, `GrafanaResourceId`, `WorkspaceResourceId`, and `NativeVmResourceId`;
+`DashboardFile` is optional.
+
 Unless role assignments are skipped, the command grants the new Grafana instance's
 managed identity Monitoring Reader over the workspace and native VM. It grants the
 importing user or service principal Grafana Editor on the selected instance. When it
