@@ -1560,7 +1560,7 @@
         "options": [],
         "query": {
           "azureResourceGraph": {
-            "query": "resources | where type =~ 'microsoft.compute/virtualmachines' | where name =~ '$nativeVm' | project subscriptionId | take 1",
+            "query": "resources | where type =~ 'microsoft.compute/virtualmachines' | where name =~ '$nativeVm' | project __text = subscriptionId, __value = subscriptionId | take 1",
             "resultFormat": "table"
           },
           "queryType": "Azure Resource Graph",
@@ -1587,7 +1587,7 @@
         "options": [],
         "query": {
           "azureResourceGraph": {
-            "query": "resources | where type =~ 'microsoft.compute/virtualmachines' | where name =~ '$nativeVm' | project resourceGroup | take 1",
+            "query": "resources | where type =~ 'microsoft.compute/virtualmachines' | where name =~ '$nativeVm' | project __text = resourceGroup, __value = resourceGroup | take 1",
             "resultFormat": "table"
           },
           "queryType": "Azure Resource Graph",
@@ -1614,7 +1614,7 @@
         "options": [],
         "query": {
           "azureResourceGraph": {
-            "query": "resources | where type =~ 'microsoft.compute/virtualmachines' | where name =~ '$nativeVm' | project location | take 1",
+            "query": "resources | where type =~ 'microsoft.compute/virtualmachines' | where name =~ '$nativeVm' | project __text = location, __value = location | take 1",
             "resultFormat": "table"
           },
           "queryType": "Azure Resource Graph",
