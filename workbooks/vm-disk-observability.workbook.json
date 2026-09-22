@@ -205,7 +205,7 @@
           {
             "namespace": "microsoft.compute/virtualmachines",
             "metric": "microsoft.compute/virtualmachines--Data Disk IOPS Consumed Percentage",
-            "aggregation": 2
+            "aggregation": 4
           }
         ]
       }
@@ -233,7 +233,7 @@
           {
             "namespace": "microsoft.compute/virtualmachines",
             "metric": "microsoft.compute/virtualmachines--Data Disk Bandwidth Consumed Percentage",
-            "aggregation": 2
+            "aggregation": 4
           }
         ]
       }
@@ -261,12 +261,12 @@
           {
             "namespace": "microsoft.compute/virtualmachines",
             "metric": "microsoft.compute/virtualmachines--VM Cached IOPS Consumed Percentage",
-            "aggregation": 2
+            "aggregation": 4
           },
           {
             "namespace": "microsoft.compute/virtualmachines",
             "metric": "microsoft.compute/virtualmachines--VM Uncached IOPS Consumed Percentage",
-            "aggregation": 2
+            "aggregation": 4
           }
         ]
       }
@@ -294,12 +294,12 @@
           {
             "namespace": "microsoft.compute/virtualmachines",
             "metric": "microsoft.compute/virtualmachines--VM Cached Bandwidth Consumed Percentage",
-            "aggregation": 2
+            "aggregation": 4
           },
           {
             "namespace": "microsoft.compute/virtualmachines",
             "metric": "microsoft.compute/virtualmachines--VM Uncached Bandwidth Consumed Percentage",
-            "aggregation": 2
+            "aggregation": 4
           }
         ]
       }
@@ -333,7 +333,7 @@
           {
             "namespace": "microsoft.compute/virtualmachines",
             "metric": "microsoft.compute/virtualmachines--Data Disk IOPS Consumed Percentage",
-            "aggregation": 4,
+            "aggregation": 2,
             "splitBy": "LUN",
             "splitBySortOrder": -1,
             "splitByLimit": 50
@@ -364,7 +364,7 @@
           {
             "namespace": "microsoft.compute/virtualmachines",
             "metric": "microsoft.compute/virtualmachines--Data Disk Bandwidth Consumed Percentage",
-            "aggregation": 4,
+            "aggregation": 2,
             "splitBy": "LUN",
             "splitBySortOrder": -1,
             "splitByLimit": 50
@@ -395,12 +395,12 @@
           {
             "namespace": "microsoft.compute/virtualmachines",
             "metric": "microsoft.compute/virtualmachines--VM Cached IOPS Consumed Percentage",
-            "aggregation": 4
+            "aggregation": 2
           },
           {
             "namespace": "microsoft.compute/virtualmachines",
             "metric": "microsoft.compute/virtualmachines--VM Uncached IOPS Consumed Percentage",
-            "aggregation": 4
+            "aggregation": 2
           }
         ]
       },
@@ -428,12 +428,12 @@
           {
             "namespace": "microsoft.compute/virtualmachines",
             "metric": "microsoft.compute/virtualmachines--VM Cached Bandwidth Consumed Percentage",
-            "aggregation": 4
+            "aggregation": 2
           },
           {
             "namespace": "microsoft.compute/virtualmachines",
             "metric": "microsoft.compute/virtualmachines--VM Uncached Bandwidth Consumed Percentage",
-            "aggregation": 4
+            "aggregation": 2
           }
         ]
       },
@@ -461,7 +461,7 @@
           {
             "namespace": "microsoft.compute/virtualmachines",
             "metric": "microsoft.compute/virtualmachines--Data Disk Latency",
-            "aggregation": 4,
+            "aggregation": 2,
             "splitBy": "LUN",
             "splitBySortOrder": -1,
             "splitByLimit": 50
@@ -563,7 +563,7 @@
           {
             "namespace": "microsoft.compute/virtualmachines",
             "metric": "microsoft.compute/virtualmachines--Data Disk Read Operations/Sec",
-            "aggregation": 2,
+            "aggregation": 4,
             "splitBy": "LUN",
             "splitBySortOrder": -1,
             "splitByLimit": 50
@@ -571,7 +571,7 @@
           {
             "namespace": "microsoft.compute/virtualmachines",
             "metric": "microsoft.compute/virtualmachines--Data Disk Write Operations/Sec",
-            "aggregation": 2,
+            "aggregation": 4,
             "splitBy": "LUN",
             "splitBySortOrder": -1,
             "splitByLimit": 50
@@ -602,7 +602,7 @@
           {
             "namespace": "microsoft.compute/virtualmachines",
             "metric": "microsoft.compute/virtualmachines--Data Disk Read Bytes/sec",
-            "aggregation": 2,
+            "aggregation": 4,
             "splitBy": "LUN",
             "splitBySortOrder": -1,
             "splitByLimit": 50
@@ -610,7 +610,7 @@
           {
             "namespace": "microsoft.compute/virtualmachines",
             "metric": "microsoft.compute/virtualmachines--Data Disk Write Bytes/sec",
-            "aggregation": 2,
+            "aggregation": 4,
             "splitBy": "LUN",
             "splitBySortOrder": -1,
             "splitByLimit": 50
@@ -655,7 +655,7 @@
           {
             "namespace": "microsoft.compute/virtualmachines",
             "metric": "microsoft.compute/virtualmachines--Data Disk Read Bytes/sec",
-            "aggregation": 4,
+            "aggregation": 2,
             "splitBy": "LUN",
             "splitBySortOrder": -1,
             "splitByLimit": 50
@@ -686,7 +686,7 @@
           {
             "namespace": "microsoft.compute/virtualmachines",
             "metric": "microsoft.compute/virtualmachines--Data Disk Write Bytes/sec",
-            "aggregation": 4,
+            "aggregation": 2,
             "splitBy": "LUN",
             "splitBySortOrder": -1,
             "splitByLimit": 50
@@ -717,7 +717,7 @@
           {
             "namespace": "microsoft.compute/virtualmachines",
             "metric": "microsoft.compute/virtualmachines--Data Disk Read Operations/Sec",
-            "aggregation": 4,
+            "aggregation": 2,
             "splitBy": "LUN",
             "splitBySortOrder": -1,
             "splitByLimit": 50
@@ -748,7 +748,7 @@
           {
             "namespace": "microsoft.compute/virtualmachines",
             "metric": "microsoft.compute/virtualmachines--Data Disk Write Operations/Sec",
-            "aggregation": 4,
+            "aggregation": 2,
             "splitBy": "LUN",
             "splitBySortOrder": -1,
             "splitByLimit": 50
