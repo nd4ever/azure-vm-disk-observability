@@ -1269,8 +1269,8 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "VM Disk Observability",
-  "uid": "vm-disk-observability",
+  "title": "__DASHBOARD_TITLE__",
+  "uid": "__DASHBOARD_UID__",
   "version": 1,
   "weekStart": ""
 }

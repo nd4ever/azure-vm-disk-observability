@@ -47,7 +47,11 @@ param(
 
     [Parameter(Mandatory = $false)]
     [ValidateScript({ Test-Path -Path $_ -PathType Leaf })]
-    [string]$DashboardFile = (Join-Path $PSScriptRoot '../grafana/vm-disk-observability.dashboard.json')
+    [string]$DashboardFile = (Join-Path $PSScriptRoot '../grafana/vm-disk-observability.dashboard.json'),
+
+    [Parameter(Mandatory = $false)]
+    [ValidateNotNullOrEmpty()]
+    [string]$DashboardTitle = 'VM Disk Observability'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -178,6 +182,10 @@ if ($MyInvocation.InvocationName -ne '.') {
         }
 
         $DashboardJson = Get-Content -Path $DashboardFile -Raw
+        $DashboardUid = ($DashboardTitle.ToLowerInvariant() -replace '[^a-z0-9]+', '-').Trim('-')
+        if ($DashboardUid.Length -gt 40) {
+            $DashboardUid = $DashboardUid.Substring(0, 40).Trim('-')
+        }
         $Replacements = [ordered]@{
             '__AZURE_MONITOR_DATASOURCE_UID__' = $AzureMonitorDatasource.uid
             '__WORKSPACE_RESOURCE_ID__' = $WorkspaceResourceId
@@ -192,6 +200,8 @@ if ($MyInvocation.InvocationName -ne '.') {
             '__VM_SKU_MAX_UNCACHED_MBPS__' = $VmSkuLimits.MaxUncachedMBps
             '__VM_SKU_MAX_CACHED_IOPS__' = $VmSkuLimits.MaxCachedIops
             '__VM_SKU_MAX_CACHED_MBPS__' = $VmSkuLimits.MaxCachedMBps
+            '__DASHBOARD_TITLE__' = $DashboardTitle
+            '__DASHBOARD_UID__' = $DashboardUid
         }
 
         foreach ($Replacement in $Replacements.GetEnumerator()) {

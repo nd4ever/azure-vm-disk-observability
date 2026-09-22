@@ -538,7 +538,8 @@ if ($MyInvocation.InvocationName -ne '.') {
                 -TenantId $TenantId `
                 -GrafanaResourceId $GrafanaResourceId `
                 -WorkspaceResourceId $LogAnalyticsWorkspaceResourceId `
-                -NativeVmResourceId $NativeVmResourceId
+                -NativeVmResourceId $NativeVmResourceId `
+                -DashboardTitle $WorkbookDisplayName
             if ($LASTEXITCODE -ne 0) {
                 throw 'The Grafana dashboard import failed.'
             }
