@@ -109,7 +109,7 @@
           "subscriptions": []
         }
       ],
-      "title": "DISK — IOPS",
+      "title": "DISK — IOPS (peak in window)",
       "type": "stat"
     },
     {
@@ -199,7 +199,7 @@
           "subscriptions": []
         }
       ],
-      "title": "DISK — Bandwidth",
+      "title": "DISK — Bandwidth (peak in window)",
       "type": "stat"
     },
     {
@@ -317,7 +317,7 @@
           "subscriptions": []
         }
       ],
-      "title": "VM SKU — IOPS",
+      "title": "VM SKU — IOPS (peak in window)",
       "type": "stat"
     },
     {
@@ -435,7 +435,7 @@
           "subscriptions": []
         }
       ],
-      "title": "VM SKU — Bandwidth",
+      "title": "VM SKU — Bandwidth (peak in window)",
       "type": "stat"
     },
     {
@@ -456,7 +456,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "Each tile shows the **peak consumed %** over the selected time range. **≥95% for 5+ minutes = throttling** at that scope.\n\n- **A DISK tile is red** → an individual data disk hit its own IOPS/bandwidth SKU limit → **resize or upgrade that disk**.\n- **A VM SKU tile is red** → the VM hit its aggregate IOPS/bandwidth limit across all disks → **resize the VM**.\n- **Both red** → the disk is saturating and rolling up to the VM limit too. Use the trend charts below to see when it happened and which LUN.",
+        "content": "Each tile shows the **peak consumed %** over the selected time range. **≥95% for 5+ minutes = throttling** at that scope.\n\n- **A DISK tile is red** → an individual data disk hit its own IOPS/bandwidth SKU limit → **resize or upgrade that disk**.\n- **A VM SKU tile is red** → the VM hit its aggregate IOPS/bandwidth limit across all disks → **resize the VM**.\n- **Both red** → the disk is saturating and rolling up to the VM limit too. Use the trend charts below to see when it happened and which LUN.\n\nThese tiles show the **peak** over the selected time range — the worst moment, not the current state. Narrow the time range (for example, Last 1 hour) to see current activity.",
         "mode": "markdown"
       },
       "pluginVersion": "12.4.8",
@@ -1590,8 +1590,373 @@
     {
       "collapsed": false,
       "gridPos": {
+        "h": 1,
+        "w": 24,
         "x": 0,
-        "y": 67,
+        "y": 67
+      },
+      "id": 32,
+      "panels": [],
+      "title": "Disk read vs write activity (by LUN)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "description": "Per-LUN read throughput by lun (average over the window).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "Bytes/s",
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "lineWidth": 1,
+            "showPoints": "never"
+          },
+          "min": 0,
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 68
+      },
+      "id": 33,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureMonitor": {
+            "aggregation": "Average",
+            "alias": "LUN {{ dimensionvalue }}",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "dimensionFilters": [
+              {
+                "dimension": "LUN",
+                "filters": [
+                  "*"
+                ],
+                "operator": "eq"
+              }
+            ],
+            "metricName": "Data Disk Read Bytes/sec",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "A",
+          "subscription": "$subscription",
+          "subscriptions": []
+        }
+      ],
+      "title": "Read throughput by LUN",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "description": "Per-LUN write throughput by lun (average over the window).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "Bytes/s",
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "lineWidth": 1,
+            "showPoints": "never"
+          },
+          "min": 0,
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 68
+      },
+      "id": 34,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureMonitor": {
+            "aggregation": "Average",
+            "alias": "LUN {{ dimensionvalue }}",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "dimensionFilters": [
+              {
+                "dimension": "LUN",
+                "filters": [
+                  "*"
+                ],
+                "operator": "eq"
+              }
+            ],
+            "metricName": "Data Disk Write Bytes/sec",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "A",
+          "subscription": "$subscription",
+          "subscriptions": []
+        }
+      ],
+      "title": "Write throughput by LUN",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "description": "Per-LUN read iops by lun (average over the window).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "IOPS",
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "lineWidth": 1,
+            "showPoints": "never"
+          },
+          "min": 0,
+          "unit": "iops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 76
+      },
+      "id": 35,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureMonitor": {
+            "aggregation": "Average",
+            "alias": "LUN {{ dimensionvalue }}",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "dimensionFilters": [
+              {
+                "dimension": "LUN",
+                "filters": [
+                  "*"
+                ],
+                "operator": "eq"
+              }
+            ],
+            "metricName": "Data Disk Read Operations/Sec",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "A",
+          "subscription": "$subscription",
+          "subscriptions": []
+        }
+      ],
+      "title": "Read IOPS by LUN",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "description": "Per-LUN write iops by lun (average over the window).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "IOPS",
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "lineWidth": 1,
+            "showPoints": "never"
+          },
+          "min": 0,
+          "unit": "iops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 76
+      },
+      "id": 36,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureMonitor": {
+            "aggregation": "Average",
+            "alias": "LUN {{ dimensionvalue }}",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "dimensionFilters": [
+              {
+                "dimension": "LUN",
+                "filters": [
+                  "*"
+                ],
+                "operator": "eq"
+              }
+            ],
+            "metricName": "Data Disk Write Operations/Sec",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "A",
+          "subscription": "$subscription",
+          "subscriptions": []
+        }
+      ],
+      "title": "Write IOPS by LUN",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 84,
         "w": 24,
         "h": 1
       },
@@ -1671,7 +2036,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 68,
+        "y": 85,
         "w": 24,
         "h": 12
       },
@@ -1749,7 +2114,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 80,
+        "y": 97,
         "w": 12,
         "h": 9
       },
@@ -1824,7 +2189,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 80,
+        "y": 97,
         "w": 12,
         "h": 9
       },
@@ -1919,7 +2284,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 89,
+        "y": 106,
         "w": 12,
         "h": 9
       },
@@ -2015,7 +2380,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 89,
+        "y": 106,
         "w": 12,
         "h": 9
       },
@@ -2074,7 +2439,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 98,
+        "y": 115,
         "w": 12,
         "h": 9
       },
@@ -2133,7 +2498,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 98,
+        "y": 115,
         "w": 12,
         "h": 9
       },

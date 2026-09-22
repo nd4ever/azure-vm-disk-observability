@@ -179,7 +179,7 @@
       "type": 1,
       "name": "DiagnosisHeading",
       "content": {
-        "json": "## Throttling diagnosis \u2014 disk limit or VM SKU limit?\n\nThese four charts show the peak consumed percentage over the selected time range for every selected VM. A series at or above 95% for five consecutive minutes indicates throttling at that scope.\n\n* **A DISK chart reaches ~100%** \u2192 an individual data disk hit its own provisioned IOPS or bandwidth limit \u2192 resize or upgrade that disk.\n* **A VM SKU chart reaches ~100%** \u2192 the VM hit its aggregate IOPS or bandwidth limit across all disks \u2192 resize the VM.\n* **Both high** \u2192 the disk is saturating and rolling up to the VM limit too.\n\nUse the detailed trend charts below to see when it happened and which LUN."
+        "json": "## Throttling diagnosis \u2014 disk limit or VM SKU limit?\n\nThese four charts show the peak consumed percentage over the selected time range for every selected VM. A series at or above 95% for five consecutive minutes indicates throttling at that scope.\n\n* **A DISK chart reaches ~100%** \u2192 an individual data disk hit its own provisioned IOPS or bandwidth limit \u2192 resize or upgrade that disk.\n* **A VM SKU chart reaches ~100%** \u2192 the VM hit its aggregate IOPS or bandwidth limit across all disks \u2192 resize the VM.\n* **Both high** \u2192 the disk is saturating and rolling up to the VM limit too.\n\nUse the detailed trend charts below to see when it happened and which LUN.\n\n_These charts show the peak over the selected time range \u2014 the worst moment, not the current state. Narrow the time range to see current activity._"
       }
     },
     {
@@ -191,7 +191,7 @@
         "version": "MetricsItem/2.0",
         "size": 0,
         "chartType": 2,
-        "title": "DISK \u2014 IOPS consumed (peak %)",
+        "title": "DISK \u2014 IOPS consumed (peak % in window)",
         "resourceIds": [
           "{VirtualMachines}"
         ],
@@ -219,7 +219,7 @@
         "version": "MetricsItem/2.0",
         "size": 0,
         "chartType": 2,
-        "title": "DISK \u2014 bandwidth consumed (peak %)",
+        "title": "DISK \u2014 bandwidth consumed (peak % in window)",
         "resourceIds": [
           "{VirtualMachines}"
         ],
@@ -247,7 +247,7 @@
         "version": "MetricsItem/2.0",
         "size": 0,
         "chartType": 2,
-        "title": "VM SKU \u2014 IOPS consumed (peak %)",
+        "title": "VM SKU \u2014 IOPS consumed (peak % in window)",
         "resourceIds": [
           "{VirtualMachines}"
         ],
@@ -280,7 +280,7 @@
         "version": "MetricsItem/2.0",
         "size": 0,
         "chartType": 2,
-        "title": "VM SKU \u2014 bandwidth consumed (peak %)",
+        "title": "VM SKU \u2014 bandwidth consumed (peak % in window)",
         "resourceIds": [
           "{VirtualMachines}"
         ],
@@ -623,6 +623,137 @@
       "name": "VmSkuLimits",
       "content": {
         "json": "### VM SKU maximum limits \u2014 __VM_SKU_SIZE__\n\nThese are the absolute aggregate ceilings published for the VM SKU. The VM cached and uncached consumed % charts below measure activity against them. When the total provisioned disk limits above exceed these numbers, the disks are over-provisioned and the VM throttles first.\n\n| Scope | Max IOPS | Max throughput (MB/s) |\n|---|---|---|\n| VM uncached (remote data disks) | __VM_SKU_MAX_UNCACHED_IOPS__ | __VM_SKU_MAX_UNCACHED_MBPS__ |\n| VM cached (temp disk + host cache) | __VM_SKU_MAX_CACHED_IOPS__ | __VM_SKU_MAX_CACHED_MBPS__ |\n\nValues shown as N/A are not published for this VM series. Uncached limits apply to remotely attached data disks; cached limits add a separate buffer for reads served from the host cache and temp disk."
+      }
+    },
+    {
+      "type": 1,
+      "name": "ReadWriteHeading",
+      "content": {
+        "json": "## Disk read vs write activity (by LUN)\n\nSeparate read and write throughput and IOPS for each Azure data-disk LUN, to see the workload read/write mix. Averaged over the selected time range."
+      }
+    },
+    {
+      "type": 10,
+      "name": "ReadThroughput",
+      "customWidth": "50%",
+      "content": {
+        "chartId": "7c01-0000-4001-9001-1b0000000001",
+        "version": "MetricsItem/2.0",
+        "size": 0,
+        "chartType": 2,
+        "title": "Read throughput by LUN",
+        "resourceIds": [
+          "{VirtualMachines}"
+        ],
+        "timeContext": {
+          "durationMs": 0
+        },
+        "timeContextFromParameter": "TimeRange",
+        "resourceType": "microsoft.compute/virtualmachines",
+        "resourceParameter": "VirtualMachines",
+        "metrics": [
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--Data Disk Read Bytes/sec",
+            "aggregation": 4,
+            "splitBy": "LUN",
+            "splitBySortOrder": -1,
+            "splitByLimit": 50
+          }
+        ]
+      }
+    },
+    {
+      "type": 10,
+      "name": "WriteThroughput",
+      "customWidth": "50%",
+      "content": {
+        "chartId": "7c02-0000-4002-9002-1b0000000002",
+        "version": "MetricsItem/2.0",
+        "size": 0,
+        "chartType": 2,
+        "title": "Write throughput by LUN",
+        "resourceIds": [
+          "{VirtualMachines}"
+        ],
+        "timeContext": {
+          "durationMs": 0
+        },
+        "timeContextFromParameter": "TimeRange",
+        "resourceType": "microsoft.compute/virtualmachines",
+        "resourceParameter": "VirtualMachines",
+        "metrics": [
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--Data Disk Write Bytes/sec",
+            "aggregation": 4,
+            "splitBy": "LUN",
+            "splitBySortOrder": -1,
+            "splitByLimit": 50
+          }
+        ]
+      }
+    },
+    {
+      "type": 10,
+      "name": "ReadIops",
+      "customWidth": "50%",
+      "content": {
+        "chartId": "7c03-0000-4003-9003-1b0000000003",
+        "version": "MetricsItem/2.0",
+        "size": 0,
+        "chartType": 2,
+        "title": "Read IOPS by LUN",
+        "resourceIds": [
+          "{VirtualMachines}"
+        ],
+        "timeContext": {
+          "durationMs": 0
+        },
+        "timeContextFromParameter": "TimeRange",
+        "resourceType": "microsoft.compute/virtualmachines",
+        "resourceParameter": "VirtualMachines",
+        "metrics": [
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--Data Disk Read Operations/Sec",
+            "aggregation": 4,
+            "splitBy": "LUN",
+            "splitBySortOrder": -1,
+            "splitByLimit": 50
+          }
+        ]
+      }
+    },
+    {
+      "type": 10,
+      "name": "WriteIops",
+      "customWidth": "50%",
+      "content": {
+        "chartId": "7c04-0000-4004-9004-1b0000000004",
+        "version": "MetricsItem/2.0",
+        "size": 0,
+        "chartType": 2,
+        "title": "Write IOPS by LUN",
+        "resourceIds": [
+          "{VirtualMachines}"
+        ],
+        "timeContext": {
+          "durationMs": 0
+        },
+        "timeContextFromParameter": "TimeRange",
+        "resourceType": "microsoft.compute/virtualmachines",
+        "resourceParameter": "VirtualMachines",
+        "metrics": [
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--Data Disk Write Operations/Sec",
+            "aggregation": 4,
+            "splitBy": "LUN",
+            "splitBySortOrder": -1,
+            "splitByLimit": 50
+          }
+        ]
       }
     },
     {

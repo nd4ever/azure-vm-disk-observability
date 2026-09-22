@@ -63,7 +63,8 @@ consecutive minutes as throttling):
 
 The DISK indicators roll up the worst data disk into one value; the trend charts below
 break it out per LUN. The VM SKU indicators show cached and uncached separately, since
-they are distinct VM ceilings.
+they are distinct VM ceilings. **The tiles show the peak over the selected time range —
+the worst moment, not the current state; narrow the time range to see current activity.**
 
 ### 2. Detailed throttling trends
 
@@ -87,9 +88,14 @@ values manually, run
 
 Next to the provisioned limits, **Data disk IOPS/throughput used by LUN (peak)** charts show
 the absolute per-LUN usage (read + write) from free platform metrics, so you can compare
-actual peak usage against the provisioned maximums. Usage is per Azure data-disk LUN;
-because these metrics are only emitted per LUN, the charts split by LUN rather than showing a
-single VM total.
+actual peak usage against the provisioned maximums. In Grafana, **Peak total used IOPS/throughput
+(all disks)** tiles sum the read + write across every LUN at each moment and show the peak, for a
+single used-vs-allowed number. Usage is per Azure data-disk LUN; because these metrics are only
+emitted per LUN, the charts split by LUN rather than showing a single VM total.
+
+A **Disk read vs write activity** section then breaks the same free metrics into separate
+read and write throughput and IOPS charts per LUN, to reveal the workload's read/write mix
+(averaged over the selected time range).
 
 ### 4. Hybrid disk inventory (guest)
 
