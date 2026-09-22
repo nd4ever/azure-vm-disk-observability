@@ -553,9 +553,9 @@
               {
                 "metricNamespace": "Microsoft.Compute/virtualMachines",
                 "region": "$vmRegion",
-                "resourceGroup": "$resourceGroup",
+                "resourceGroup": "$vmResourceGroup",
                 "resourceName": "$nativeVm",
-                "subscription": "$subscription"
+                "subscription": "$vmSubscription"
               }
             ],
             "timeGrain": "auto"
@@ -566,7 +566,7 @@
           },
           "queryType": "Azure Monitor",
           "refId": "A",
-          "subscription": "$subscription",
+          "subscription": "$vmSubscription",
           "subscriptions": []
         }
       ],
@@ -635,9 +635,9 @@
               {
                 "metricNamespace": "Microsoft.Compute/virtualMachines",
                 "region": "$vmRegion",
-                "resourceGroup": "$resourceGroup",
+                "resourceGroup": "$vmResourceGroup",
                 "resourceName": "$nativeVm",
-                "subscription": "$subscription"
+                "subscription": "$vmSubscription"
               }
             ],
             "timeGrain": "auto"
@@ -648,7 +648,7 @@
           },
           "queryType": "Azure Monitor",
           "refId": "A",
-          "subscription": "$subscription",
+          "subscription": "$vmSubscription",
           "subscriptions": []
         }
       ],
@@ -716,9 +716,9 @@
               {
                 "metricNamespace": "Microsoft.Compute/virtualMachines",
                 "region": "$vmRegion",
-                "resourceGroup": "$resourceGroup",
+                "resourceGroup": "$vmResourceGroup",
                 "resourceName": "$nativeVm",
-                "subscription": "$subscription"
+                "subscription": "$vmSubscription"
               }
             ],
             "timeGrain": "auto"
@@ -729,7 +729,7 @@
           },
           "queryType": "Azure Monitor",
           "refId": "A",
-          "subscription": "$subscription",
+          "subscription": "$vmSubscription",
           "subscriptions": []
         }
       ],
@@ -790,7 +790,7 @@
           "queryType": "Azure Resource Graph",
           "refId": "A",
           "subscriptions": [
-            "$subscription"
+            "$vmSubscription"
           ]
         }
       ],
@@ -838,7 +838,7 @@
           "queryType": "Azure Resource Graph",
           "refId": "A",
           "subscriptions": [
-            "$subscription"
+            "$vmSubscription"
           ]
         }
       ],
@@ -919,9 +919,9 @@
               {
                 "metricNamespace": "Microsoft.Compute/virtualMachines",
                 "region": "$vmRegion",
-                "resourceGroup": "$resourceGroup",
+                "resourceGroup": "$vmResourceGroup",
                 "resourceName": "$nativeVm",
-                "subscription": "$subscription"
+                "subscription": "$vmSubscription"
               }
             ],
             "timeGrain": "auto"
@@ -932,7 +932,7 @@
           },
           "queryType": "Azure Monitor",
           "refId": "A",
-          "subscription": "$subscription",
+          "subscription": "$vmSubscription",
           "subscriptions": []
         },
         {
@@ -947,9 +947,9 @@
               {
                 "metricNamespace": "Microsoft.Compute/virtualMachines",
                 "region": "$vmRegion",
-                "resourceGroup": "$resourceGroup",
+                "resourceGroup": "$vmResourceGroup",
                 "resourceName": "$nativeVm",
-                "subscription": "$subscription"
+                "subscription": "$vmSubscription"
               }
             ],
             "timeGrain": "auto"
@@ -960,7 +960,7 @@
           },
           "queryType": "Azure Monitor",
           "refId": "B",
-          "subscription": "$subscription",
+          "subscription": "$vmSubscription",
           "subscriptions": []
         }
       ],
@@ -1020,9 +1020,9 @@
               {
                 "metricNamespace": "Microsoft.Compute/virtualMachines",
                 "region": "$vmRegion",
-                "resourceGroup": "$resourceGroup",
+                "resourceGroup": "$vmResourceGroup",
                 "resourceName": "$nativeVm",
-                "subscription": "$subscription"
+                "subscription": "$vmSubscription"
               }
             ],
             "timeGrain": "auto"
@@ -1033,7 +1033,7 @@
           },
           "queryType": "Azure Monitor",
           "refId": "A",
-          "subscription": "$subscription",
+          "subscription": "$vmSubscription",
           "subscriptions": []
         },
         {
@@ -1048,9 +1048,9 @@
               {
                 "metricNamespace": "Microsoft.Compute/virtualMachines",
                 "region": "$vmRegion",
-                "resourceGroup": "$resourceGroup",
+                "resourceGroup": "$vmResourceGroup",
                 "resourceName": "$nativeVm",
-                "subscription": "$subscription"
+                "subscription": "$vmSubscription"
               }
             ],
             "timeGrain": "auto"
@@ -1061,7 +1061,7 @@
           },
           "queryType": "Azure Monitor",
           "refId": "B",
-          "subscription": "$subscription",
+          "subscription": "$vmSubscription",
           "subscriptions": []
         }
       ],
@@ -1278,9 +1278,9 @@
               {
                 "metricNamespace": "Microsoft.Compute/virtualMachines",
                 "region": "$vmRegion",
-                "resourceGroup": "$resourceGroup",
+                "resourceGroup": "$vmResourceGroup",
                 "resourceName": "$nativeVm",
-                "subscription": "$subscription"
+                "subscription": "$vmSubscription"
               }
             ],
             "timeGrain": "auto"
@@ -1291,7 +1291,7 @@
           },
           "queryType": "Azure Monitor",
           "refId": "A",
-          "subscription": "$subscription",
+          "subscription": "$vmSubscription",
           "subscriptions": []
         },
         {
@@ -1315,9 +1315,9 @@
               {
                 "metricNamespace": "Microsoft.Compute/virtualMachines",
                 "region": "$vmRegion",
-                "resourceGroup": "$resourceGroup",
+                "resourceGroup": "$vmResourceGroup",
                 "resourceName": "$nativeVm",
-                "subscription": "$subscription"
+                "subscription": "$vmSubscription"
               }
             ],
             "timeGrain": "auto"
@@ -1328,7 +1328,7 @@
           },
           "queryType": "Azure Monitor",
           "refId": "B",
-          "subscription": "$subscription",
+          "subscription": "$vmSubscription",
           "subscriptions": []
         }
       ],
@@ -1405,9 +1405,9 @@
               {
                 "metricNamespace": "Microsoft.Compute/virtualMachines",
                 "region": "$vmRegion",
-                "resourceGroup": "$resourceGroup",
+                "resourceGroup": "$vmResourceGroup",
                 "resourceName": "$nativeVm",
-                "subscription": "$subscription"
+                "subscription": "$vmSubscription"
               }
             ],
             "timeGrain": "auto"
@@ -1418,7 +1418,7 @@
           },
           "queryType": "Azure Monitor",
           "refId": "A",
-          "subscription": "$subscription",
+          "subscription": "$vmSubscription",
           "subscriptions": []
         },
         {
@@ -1433,9 +1433,9 @@
               {
                 "metricNamespace": "Microsoft.Compute/virtualMachines",
                 "region": "$vmRegion",
-                "resourceGroup": "$resourceGroup",
+                "resourceGroup": "$vmResourceGroup",
                 "resourceName": "$nativeVm",
-                "subscription": "$subscription"
+                "subscription": "$vmSubscription"
               }
             ],
             "timeGrain": "auto"
@@ -1446,7 +1446,7 @@
           },
           "queryType": "Azure Monitor",
           "refId": "B",
-          "subscription": "$subscription",
+          "subscription": "$vmSubscription",
           "subscriptions": []
         },
         {
@@ -1461,9 +1461,9 @@
               {
                 "metricNamespace": "Microsoft.Compute/virtualMachines",
                 "region": "$vmRegion",
-                "resourceGroup": "$resourceGroup",
+                "resourceGroup": "$vmResourceGroup",
                 "resourceName": "$nativeVm",
-                "subscription": "$subscription"
+                "subscription": "$vmSubscription"
               }
             ],
             "timeGrain": "auto"
@@ -1474,7 +1474,7 @@
           },
           "queryType": "Azure Monitor",
           "refId": "C",
-          "subscription": "$subscription",
+          "subscription": "$vmSubscription",
           "subscriptions": []
         },
         {
@@ -1489,9 +1489,9 @@
               {
                 "metricNamespace": "Microsoft.Compute/virtualMachines",
                 "region": "$vmRegion",
-                "resourceGroup": "$resourceGroup",
+                "resourceGroup": "$vmResourceGroup",
                 "resourceName": "$nativeVm",
-                "subscription": "$subscription"
+                "subscription": "$vmSubscription"
               }
             ],
             "timeGrain": "auto"
@@ -1502,7 +1502,7 @@
           },
           "queryType": "Azure Monitor",
           "refId": "D",
-          "subscription": "$subscription",
+          "subscription": "$vmSubscription",
           "subscriptions": []
         }
       ],
@@ -1521,47 +1521,22 @@
   "templating": {
     "list": [
       {
-        "current": {},
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
         "datasource": {
           "type": "grafana-azure-monitor-datasource",
           "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
         },
-        "includeAll": false,
-        "label": "Subscription",
-        "multi": false,
+        "hide": 2,
+        "includeAll": true,
+        "multi": true,
         "name": "subscription",
         "options": [],
         "query": {
           "queryType": "Azure Subscriptions",
           "refId": "A"
-        },
-        "refresh": 1,
-        "regex": "",
-        "skipUrlSync": false,
-        "sort": 1,
-        "type": "query"
-      },
-      {
-        "current": {},
-        "datasource": {
-          "type": "grafana-azure-monitor-datasource",
-          "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
-        },
-        "includeAll": false,
-        "label": "Resource group",
-        "multi": false,
-        "name": "resourceGroup",
-        "options": [],
-        "query": {
-          "azureResourceGraph": {
-            "query": "resources | where type =~ 'microsoft.compute/virtualmachines' | distinct resourceGroup | order by resourceGroup asc",
-            "resultFormat": "table"
-          },
-          "queryType": "Azure Resource Graph",
-          "refId": "A",
-          "subscriptions": [
-            "$subscription"
-          ]
         },
         "refresh": 1,
         "regex": "",
@@ -1582,7 +1557,7 @@
         "options": [],
         "query": {
           "azureResourceGraph": {
-            "query": "resources | where type =~ 'microsoft.compute/virtualmachines' | where resourceGroup =~ '$resourceGroup' | distinct name | order by name asc",
+            "query": "resources | where type =~ 'microsoft.compute/virtualmachines' | project __text = strcat(name, ' (', resourceGroup, ')'), __value = name | order by __text asc",
             "resultFormat": "table"
           },
           "queryType": "Azure Resource Graph",
@@ -1594,7 +1569,7 @@
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
-        "sort": 1,
+        "sort": 0,
         "type": "query"
       },
       {
@@ -1605,13 +1580,65 @@
         },
         "hide": 2,
         "includeAll": false,
-        "label": "VM region",
-        "multi": false,
+        "name": "vmSubscription",
+        "options": [],
+        "query": {
+          "azureResourceGraph": {
+            "query": "resources | where type =~ 'microsoft.compute/virtualmachines' | where name =~ '$nativeVm' | project subscriptionId | take 1",
+            "resultFormat": "table"
+          },
+          "queryType": "Azure Resource Graph",
+          "refId": "A",
+          "subscriptions": [
+            "$subscription"
+          ]
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "grafana-azure-monitor-datasource",
+          "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+        },
+        "hide": 2,
+        "includeAll": false,
+        "name": "vmResourceGroup",
+        "options": [],
+        "query": {
+          "azureResourceGraph": {
+            "query": "resources | where type =~ 'microsoft.compute/virtualmachines' | where name =~ '$nativeVm' | project resourceGroup | take 1",
+            "resultFormat": "table"
+          },
+          "queryType": "Azure Resource Graph",
+          "refId": "A",
+          "subscriptions": [
+            "$subscription"
+          ]
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "grafana-azure-monitor-datasource",
+          "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+        },
+        "hide": 2,
+        "includeAll": false,
         "name": "vmRegion",
         "options": [],
         "query": {
           "azureResourceGraph": {
-            "query": "resources | where type =~ 'microsoft.compute/virtualmachines' | where resourceGroup =~ '$resourceGroup' and name =~ '$nativeVm' | distinct location",
+            "query": "resources | where type =~ 'microsoft.compute/virtualmachines' | where name =~ '$nativeVm' | project location | take 1",
             "resultFormat": "table"
           },
           "queryType": "Azure Resource Graph",
@@ -1703,3 +1730,4 @@
   "version": 1,
   "weekStart": ""
 }
+
