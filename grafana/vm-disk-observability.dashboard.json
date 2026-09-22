@@ -1521,30 +1521,6 @@
   "templating": {
     "list": [
       {
-        "current": {
-          "text": "All",
-          "value": "$__all"
-        },
-        "datasource": {
-          "type": "grafana-azure-monitor-datasource",
-          "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
-        },
-        "hide": 2,
-        "includeAll": true,
-        "multi": true,
-        "name": "subscription",
-        "options": [],
-        "query": {
-          "queryType": "Azure Subscriptions",
-          "refId": "A"
-        },
-        "refresh": 1,
-        "regex": "",
-        "skipUrlSync": false,
-        "sort": 1,
-        "type": "query"
-      },
-      {
         "current": {},
         "datasource": {
           "type": "grafana-azure-monitor-datasource",
@@ -1563,7 +1539,7 @@
           "queryType": "Azure Resource Graph",
           "refId": "A",
           "subscriptions": [
-            "$subscription"
+            "__ALL_SUBSCRIPTION_IDS__"
           ]
         },
         "refresh": 1,
@@ -1590,7 +1566,7 @@
           "queryType": "Azure Resource Graph",
           "refId": "A",
           "subscriptions": [
-            "$subscription"
+            "__ALL_SUBSCRIPTION_IDS__"
           ]
         },
         "refresh": 1,
@@ -1617,7 +1593,7 @@
           "queryType": "Azure Resource Graph",
           "refId": "A",
           "subscriptions": [
-            "$subscription"
+            "__ALL_SUBSCRIPTION_IDS__"
           ]
         },
         "refresh": 1,
@@ -1644,7 +1620,7 @@
           "queryType": "Azure Resource Graph",
           "refId": "A",
           "subscriptions": [
-            "$subscription"
+            "__ALL_SUBSCRIPTION_IDS__"
           ]
         },
         "refresh": 1,
@@ -1730,4 +1706,5 @@
   "version": 1,
   "weekStart": ""
 }
+
 

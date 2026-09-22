@@ -152,6 +152,16 @@ if ($MyInvocation.InvocationName -ne '.') {
 
         $VmSkuLimits = Get-VmSkuLimits -NativeVmResourceId $NativeVmResourceId -AzureCli $AzureCli
 
+        $EnabledSubscriptionIds = @(
+            & $AzureCli account list --query "[?state=='Enabled'].id" --output tsv |
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+                ForEach-Object { $_.Trim() }
+        )
+        if ($EnabledSubscriptionIds.Count -eq 0) {
+            throw 'Unable to enumerate accessible Azure subscriptions for the VM selector.'
+        }
+        $AllSubscriptionIdsJson = ($EnabledSubscriptionIds | ForEach-Object { '"' + $_ + '"' }) -join ','
+
         $GrafanaEndpoint = $GrafanaResource.properties.endpoint.TrimEnd('/')
         $AzureMonitorDatasource = $null
         $ReadinessDeadline = [DateTimeOffset]::UtcNow.AddMinutes(10)
@@ -207,6 +217,7 @@ if ($MyInvocation.InvocationName -ne '.') {
         foreach ($Replacement in $Replacements.GetEnumerator()) {
             $DashboardJson = $DashboardJson.Replace($Replacement.Key, $Replacement.Value)
         }
+        $DashboardJson = $DashboardJson.Replace('"__ALL_SUBSCRIPTION_IDS__"', $AllSubscriptionIdsJson)
 
         $DashboardJson | ConvertFrom-Json -Depth 100 | Out-Null
         $RenderedDashboardPath = Join-Path ([System.IO.Path]::GetTempPath()) "vm-disk-observability-$([guid]::NewGuid()).json"
