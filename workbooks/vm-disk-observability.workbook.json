@@ -481,7 +481,7 @@
       "name": "DiskProvisionedLimits",
       "content": {
         "version": "KqlItem/1.0",
-        "query": "where type =~ 'microsoft.compute/disks'\n| where managedBy in~ ({VirtualMachines})\n| extend VM = tostring(split(managedBy, '/')[-1])\n| project VM, DiskName = name, Sku = tostring(sku.name), SizeGiB = toint(properties.diskSizeGB), MaxIOPS = toint(properties.diskIOPSReadWrite), MaxThroughputMBps = toint(properties.diskMBpsReadWrite)\n| order by VM asc, MaxIOPS desc",
+        "query": "where type =~ 'microsoft.compute/disks' and isnotempty(managedBy) and managedBy contains 'virtualMachines'\n| extend VM = tostring(split(managedBy, '/')[-1])\n| project VM, DiskName = name, Sku = tostring(sku.name), SizeGiB = toint(properties.diskSizeGB), MaxIOPS = toint(properties.diskIOPSReadWrite), MaxThroughputMBps = toint(properties.diskMBpsReadWrite)\n| order by VM asc, MaxIOPS desc",
         "size": 0,
         "title": "Provisioned per-disk limits (disk SKU)",
         "queryType": 1,
@@ -515,7 +515,7 @@
       "name": "VmTotalProvisioned",
       "content": {
         "version": "KqlItem/1.0",
-        "query": "where type =~ 'microsoft.compute/disks'\n| where managedBy in~ ({VirtualMachines})\n| extend VM = tostring(split(managedBy, '/')[-1])\n| summarize Disks = count(), TotalProvisionedIOPS = sum(toint(properties.diskIOPSReadWrite)), TotalProvisionedThroughputMBps = sum(toint(properties.diskMBpsReadWrite)) by VM\n| order by VM asc",
+        "query": "where type =~ 'microsoft.compute/disks' and isnotempty(managedBy) and managedBy contains 'virtualMachines'\n| extend VM = tostring(split(managedBy, '/')[-1])\n| summarize Disks = count(), TotalProvisionedIOPS = sum(toint(properties.diskIOPSReadWrite)), TotalProvisionedThroughputMBps = sum(toint(properties.diskMBpsReadWrite)) by VM\n| order by VM asc",
         "size": 0,
         "title": "Total provisioned limits across all disks",
         "queryType": 1,
