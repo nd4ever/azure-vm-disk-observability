@@ -39,14 +39,16 @@ A metric at or above 95% for five consecutive minutes indicates throttling at th
 A single LUN near 100% while the VM metrics stay low points to the disk; a VM cached or
 uncached metric near 100% while no single disk saturates points to the VM SKU.
 
-A live Azure Resource Graph table reports each disk's maximum IOPS and MiB/s from its disk
+A live Azure Resource Graph table reports each disk's maximum IOPS and MB/s from its disk
 SKU, plus the totals summed across all attached disks. When the summed disk limits exceed
 the VM SKU maximums, the disks are over-provisioned and the VM throttles first. Guest-side
 `vm-total-iops-timeseries.kql` and `vm-total-throughput-timeseries.kql` chart the aggregate
 demand across all logical disks per machine.
 
-The absolute VM SKU maximums (max uncached IOPS and MiB/s) are not exposed by Azure Resource
-Graph; retrieve them from the VM series documentation or
+The absolute VM SKU maximums (max uncached and cached IOPS and MB/s) are resolved at
+deployment time from the Compute resource SKUs catalog and shown in a **VM SKU maximum
+limits** panel in both experiences. Capabilities a VM series does not publish appear as
+`N/A`. To read the same values manually, run
 `az vm list-skus --location <region> --size <vmSize> --query "[].capabilities"`.
 
 ## Deployment model

@@ -94,6 +94,7 @@ function ConvertFrom-AzureResourceId {
 if ($MyInvocation.InvocationName -ne '.') {
     try {
         $AzureCli = (Get-Command az -ErrorAction Stop).Source
+        . (Join-Path $PSScriptRoot 'Get-VmSkuLimits.ps1')
         $TemplateFile = Join-Path $PSScriptRoot '../infra/main.bicep'
         $Account = & $AzureCli account show --subscription $SubscriptionId --output json | ConvertFrom-Json
         if ($LASTEXITCODE -ne 0) {
@@ -133,6 +134,8 @@ if ($MyInvocation.InvocationName -ne '.') {
             throw "Unable to resolve native Azure VM '$NativeVmResourceId'."
         }
 
+        $VmSkuLimits = Get-VmSkuLimits -NativeVmResourceId $NativeVmResourceId -AzureCli $AzureCli
+
         & $AzureCli deployment group create `
             --subscription $SubscriptionId `
             --resource-group $ResourceGroupName `
@@ -141,6 +144,11 @@ if ($MyInvocation.InvocationName -ne '.') {
             --parameters `
                 logAnalyticsWorkspaceResourceId=$LogAnalyticsWorkspaceResourceId `
                 nativeVmResourceId=$NativeVmResourceId `
+                vmSkuSize=$($VmSkuLimits.Size) `
+                vmSkuMaxUncachedIops=$($VmSkuLimits.MaxUncachedIops) `
+                vmSkuMaxUncachedMBps=$($VmSkuLimits.MaxUncachedMBps) `
+                vmSkuMaxCachedIops=$($VmSkuLimits.MaxCachedIops) `
+                vmSkuMaxCachedMBps=$($VmSkuLimits.MaxCachedMBps) `
                 shouldDeployGrafana=false `
             --output table
 

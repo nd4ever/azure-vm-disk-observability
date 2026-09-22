@@ -846,6 +846,27 @@
       "type": "table"
     },
     {
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 50
+      },
+      "id": 18,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "### VM SKU maximum limits \u2014 __VM_SKU_SIZE__\n\nAbsolute aggregate ceilings published for the VM SKU. The VM cached and uncached consumed % charts below measure activity against them. When the total provisioned disk limits above exceed these numbers, the disks are over-provisioned and the VM throttles first. `N/A` means the value is not published for this VM series.\n\n| Scope | Max IOPS | Max throughput (MB/s) |\n|---|---|---|\n| VM uncached (remote data disks) | __VM_SKU_MAX_UNCACHED_IOPS__ | __VM_SKU_MAX_UNCACHED_MBPS__ |\n| VM cached (temp disk + host cache) | __VM_SKU_MAX_CACHED_IOPS__ | __VM_SKU_MAX_CACHED_MBPS__ |",
+        "mode": "markdown"
+      },
+      "pluginVersion": "12.4.8",
+      "title": "VM SKU maximum limits",
+      "type": "text"
+    },
+    {
       "datasource": {
         "type": "grafana-azure-monitor-datasource",
         "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
@@ -866,7 +887,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 50
+        "y": 54
       },
       "id": 14,
       "options": {
@@ -967,7 +988,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 50
+        "y": 54
       },
       "id": 15,
       "options": {
@@ -1067,7 +1088,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 59
+        "y": 63
       },
       "id": 16,
       "options": {
@@ -1126,7 +1147,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 59
+        "y": 63
       },
       "id": 17,
       "options": {

@@ -439,7 +439,7 @@
             },
             {
               "columnId": "MaxThroughputMBps",
-              "label": "Max throughput (MiB/s)"
+              "label": "Max throughput (MB/s)"
             }
           ]
         }
@@ -469,10 +469,17 @@
             },
             {
               "columnId": "TotalProvisionedThroughputMBps",
-              "label": "Total max throughput (MiB/s, all disks)"
+              "label": "Total max throughput (MB/s, all disks)"
             }
           ]
         }
+      }
+    },
+    {
+      "type": 1,
+      "name": "VmSkuLimits",
+      "content": {
+        "json": "### VM SKU maximum limits \u2014 __VM_SKU_SIZE__\n\nThese are the absolute aggregate ceilings published for the VM SKU. The VM cached and uncached consumed % charts below measure activity against them. When the total provisioned disk limits above exceed these numbers, the disks are over-provisioned and the VM throttles first.\n\n| Scope | Max IOPS | Max throughput (MB/s) |\n|---|---|---|\n| VM uncached (remote data disks) | __VM_SKU_MAX_UNCACHED_IOPS__ | __VM_SKU_MAX_UNCACHED_MBPS__ |\n| VM cached (temp disk + host cache) | __VM_SKU_MAX_CACHED_IOPS__ | __VM_SKU_MAX_CACHED_MBPS__ |\n\nValues shown as N/A are not published for this VM series. Uncached limits apply to remotely attached data disks; cached limits add a separate buffer for reads served from the host cache and temp disk."
       }
     },
     {

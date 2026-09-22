@@ -296,6 +296,7 @@ if ($MyInvocation.InvocationName -ne '.') {
     try {
         $script:AzureCli = (Get-Command az -ErrorAction Stop).Source
         $ProjectRoot = Split-Path -Path $PSScriptRoot -Parent
+        . (Join-Path $PSScriptRoot 'Get-VmSkuLimits.ps1')
         $TemplateFile = Join-Path $ProjectRoot 'infra/main.bicep'
         $ImportScript = Join-Path $PSScriptRoot 'Import-GrafanaDashboard.ps1'
 
@@ -441,6 +442,8 @@ if ($MyInvocation.InvocationName -ne '.') {
             }
         }
 
+        $VmSkuLimits = Get-VmSkuLimits -NativeVmResourceId $NativeVmResourceId -AzureCli $script:AzureCli
+
         $Deployment = Invoke-AzureCliJson `
             -Arguments @(
                 'deployment', 'group', 'create',
@@ -453,6 +456,11 @@ if ($MyInvocation.InvocationName -ne '.') {
                 "logAnalyticsWorkspaceResourceId=$LogAnalyticsWorkspaceResourceId",
                 "nativeVmResourceId=$NativeVmResourceId",
                 "workbookDisplayName=$WorkbookDisplayName",
+                "vmSkuSize=$($VmSkuLimits.Size)",
+                "vmSkuMaxUncachedIops=$($VmSkuLimits.MaxUncachedIops)",
+                "vmSkuMaxUncachedMBps=$($VmSkuLimits.MaxUncachedMBps)",
+                "vmSkuMaxCachedIops=$($VmSkuLimits.MaxCachedIops)",
+                "vmSkuMaxCachedMBps=$($VmSkuLimits.MaxCachedMBps)",
                 "shouldDeployGrafana=$($ShouldDeployGrafana.ToString().ToLowerInvariant())",
                 "grafanaName=$GrafanaName",
                 '--output', 'json'
