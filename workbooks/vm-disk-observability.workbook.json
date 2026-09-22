@@ -541,6 +541,84 @@
       }
     },
     {
+      "type": 10,
+      "name": "UsedDiskIops",
+      "customWidth": "50%",
+      "content": {
+        "chartId": "5b1a0001-4a01-9c01-1a0000000001",
+        "version": "MetricsItem/2.0",
+        "size": 0,
+        "chartType": 2,
+        "title": "Data disk IOPS used by LUN (peak, read + write)",
+        "resourceIds": [
+          "{VirtualMachines}"
+        ],
+        "timeContext": {
+          "durationMs": 0
+        },
+        "timeContextFromParameter": "TimeRange",
+        "resourceType": "microsoft.compute/virtualmachines",
+        "resourceParameter": "VirtualMachines",
+        "metrics": [
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--Data Disk Read Operations/Sec",
+            "aggregation": 2,
+            "splitBy": "LUN",
+            "splitBySortOrder": -1,
+            "splitByLimit": 50
+          },
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--Data Disk Write Operations/Sec",
+            "aggregation": 2,
+            "splitBy": "LUN",
+            "splitBySortOrder": -1,
+            "splitByLimit": 50
+          }
+        ]
+      }
+    },
+    {
+      "type": 10,
+      "name": "UsedDiskThroughput",
+      "customWidth": "50%",
+      "content": {
+        "chartId": "5b1a0002-4a02-9c02-1a0000000002",
+        "version": "MetricsItem/2.0",
+        "size": 0,
+        "chartType": 2,
+        "title": "Data disk throughput used by LUN (peak, read + write)",
+        "resourceIds": [
+          "{VirtualMachines}"
+        ],
+        "timeContext": {
+          "durationMs": 0
+        },
+        "timeContextFromParameter": "TimeRange",
+        "resourceType": "microsoft.compute/virtualmachines",
+        "resourceParameter": "VirtualMachines",
+        "metrics": [
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--Data Disk Read Bytes/sec",
+            "aggregation": 2,
+            "splitBy": "LUN",
+            "splitBySortOrder": -1,
+            "splitByLimit": 50
+          },
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--Data Disk Write Bytes/sec",
+            "aggregation": 2,
+            "splitBy": "LUN",
+            "splitBySortOrder": -1,
+            "splitByLimit": 50
+          }
+        ]
+      }
+    },
+    {
       "type": 1,
       "name": "VmSkuLimits",
       "content": {

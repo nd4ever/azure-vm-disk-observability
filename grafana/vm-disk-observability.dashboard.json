@@ -1033,9 +1033,257 @@
       "type": "table"
     },
     {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "description": "Absolute data-disk IOPS used per LUN (read + write). Compare the peak against the provisioned Max IOPS above.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "IOPS",
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "lineWidth": 1,
+            "showPoints": "never"
+          },
+          "min": 0,
+          "unit": "iops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 51
+      },
+      "id": 28,
+      "options": {
+        "legend": {
+          "calcs": [
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureMonitor": {
+            "aggregation": "Maximum",
+            "alias": "Read LUN {{ dimensionvalue }}",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "dimensionFilters": [
+              {
+                "dimension": "LUN",
+                "filters": [
+                  "*"
+                ],
+                "operator": "eq"
+              }
+            ],
+            "metricName": "Data Disk Read Operations/Sec",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "A",
+          "subscription": "$subscription",
+          "subscriptions": []
+        },
+        {
+          "azureMonitor": {
+            "aggregation": "Maximum",
+            "alias": "Write LUN {{ dimensionvalue }}",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "dimensionFilters": [
+              {
+                "dimension": "LUN",
+                "filters": [
+                  "*"
+                ],
+                "operator": "eq"
+              }
+            ],
+            "metricName": "Data Disk Write Operations/Sec",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "B",
+          "subscription": "$subscription",
+          "subscriptions": []
+        }
+      ],
+      "title": "Data disk IOPS used by LUN (peak)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "description": "Absolute data-disk throughput used per LUN (read + write). Compare the peak against the provisioned Max throughput above.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "Bytes/s",
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "lineWidth": 1,
+            "showPoints": "never"
+          },
+          "min": 0,
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 51
+      },
+      "id": 29,
+      "options": {
+        "legend": {
+          "calcs": [
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureMonitor": {
+            "aggregation": "Maximum",
+            "alias": "Read LUN {{ dimensionvalue }}",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "dimensionFilters": [
+              {
+                "dimension": "LUN",
+                "filters": [
+                  "*"
+                ],
+                "operator": "eq"
+              }
+            ],
+            "metricName": "Data Disk Read Bytes/sec",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "A",
+          "subscription": "$subscription",
+          "subscriptions": []
+        },
+        {
+          "azureMonitor": {
+            "aggregation": "Maximum",
+            "alias": "Write LUN {{ dimensionvalue }}",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "dimensionFilters": [
+              {
+                "dimension": "LUN",
+                "filters": [
+                  "*"
+                ],
+                "operator": "eq"
+              }
+            ],
+            "metricName": "Data Disk Write Bytes/sec",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "B",
+          "subscription": "$subscription",
+          "subscriptions": []
+        }
+      ],
+      "title": "Data disk throughput used by LUN (peak)",
+      "type": "timeseries"
+    },
+    {
       "gridPos": {
         "x": 0,
-        "y": 51,
+        "y": 59,
         "w": 24,
         "h": 4
       },
@@ -1057,7 +1305,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 55,
+        "y": 63,
         "w": 24,
         "h": 1
       },
@@ -1137,7 +1385,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 56,
+        "y": 64,
         "w": 24,
         "h": 12
       },
@@ -1215,7 +1463,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 68,
+        "y": 76,
         "w": 12,
         "h": 9
       },
@@ -1290,7 +1538,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 68,
+        "y": 76,
         "w": 12,
         "h": 9
       },
@@ -1385,7 +1633,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 77,
+        "y": 85,
         "w": 12,
         "h": 9
       },
@@ -1481,7 +1729,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 77,
+        "y": 85,
         "w": 12,
         "h": 9
       },
@@ -1540,7 +1788,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 86,
+        "y": 94,
         "w": 12,
         "h": 9
       },
@@ -1599,7 +1847,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 86,
+        "y": 94,
         "w": 12,
         "h": 9
       },

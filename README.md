@@ -85,6 +85,12 @@ limits** panel. Capabilities a VM series does not publish appear as `N/A`. To re
 values manually, run
 `az vm list-skus --location <region> --size <vmSize> --query "[].capabilities"`.
 
+Next to the provisioned limits, **Data disk IOPS/throughput used by LUN (peak)** charts show
+the absolute per-LUN usage (read + write) from free platform metrics, so you can compare
+actual peak usage against the provisioned maximums. Usage is per Azure data-disk LUN;
+because these metrics are only emitted per LUN, the charts split by LUN rather than showing a
+single VM total.
+
 ### 4. Hybrid disk inventory (guest)
 
 A sortable per-disk table plus guest time-series for total IOPS, total throughput, latency,
