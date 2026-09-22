@@ -579,6 +579,95 @@
         ],
         "visualization": "timechart"
       }
+    },
+    {
+      "type": 1,
+      "name": "HotspotsHeading",
+      "content": {
+        "json": "## Throttling hotspots (fleet-wide)\n\nThese two views scan every selected VM at once to surface where throttling is happening. Series show the peak (Maximum) consumed percentage over the selected time range; a value at or above 95% means throttling at that scope.\n\n* **Disks at their disk limit** ranks individual data-disk LUNs against their own provisioned IOPS and bandwidth limits. A LUN near 100% means that single disk is the bottleneck.\n* **VMs at their VM SKU limit** ranks whole VMs against their cached and uncached SKU aggregate limits across all disks. A VM near 100% means the SKU aggregate is the bottleneck before any single disk."
+      }
+    },
+    {
+      "type": 10,
+      "name": "HotspotDisks",
+      "customWidth": "50%",
+      "content": {
+        "chartId": "3f8c4e16-5d3a-4f5c-be01-4c2d9f1e7e33",
+        "version": "MetricsItem/2.0",
+        "size": 0,
+        "chartType": 2,
+        "title": "Disks at their disk limit \u2014 peak consumed % by LUN",
+        "resourceIds": [
+          "{VirtualMachines}"
+        ],
+        "timeContext": {
+          "durationMs": 0
+        },
+        "timeContextFromParameter": "TimeRange",
+        "resourceType": "microsoft.compute/virtualmachines",
+        "resourceParameter": "VirtualMachines",
+        "metrics": [
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--Data Disk IOPS Consumed Percentage",
+            "aggregation": 2,
+            "splitBy": "LUN",
+            "splitBySortOrder": -1,
+            "splitByLimit": 50
+          },
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--Data Disk Bandwidth Consumed Percentage",
+            "aggregation": 2,
+            "splitBy": "LUN",
+            "splitBySortOrder": -1,
+            "splitByLimit": 50
+          }
+        ]
+      }
+    },
+    {
+      "type": 10,
+      "name": "HotspotVms",
+      "customWidth": "50%",
+      "content": {
+        "chartId": "4a9d5f27-6e4b-4061-cf12-5d3e0a2f8f44",
+        "version": "MetricsItem/2.0",
+        "size": 0,
+        "chartType": 2,
+        "title": "VMs at their VM SKU limit \u2014 peak consumed %",
+        "resourceIds": [
+          "{VirtualMachines}"
+        ],
+        "timeContext": {
+          "durationMs": 0
+        },
+        "timeContextFromParameter": "TimeRange",
+        "resourceType": "microsoft.compute/virtualmachines",
+        "resourceParameter": "VirtualMachines",
+        "metrics": [
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--VM Cached IOPS Consumed Percentage",
+            "aggregation": 2
+          },
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--VM Uncached IOPS Consumed Percentage",
+            "aggregation": 2
+          },
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--VM Cached Bandwidth Consumed Percentage",
+            "aggregation": 2
+          },
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--VM Uncached Bandwidth Consumed Percentage",
+            "aggregation": 2
+          }
+        ]
+      }
     }
   ]
 }

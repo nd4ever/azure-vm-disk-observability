@@ -552,10 +552,10 @@
             "resources": [
               {
                 "metricNamespace": "Microsoft.Compute/virtualMachines",
-                "region": "__AZURE_VM_REGION__",
-                "resourceGroup": "__AZURE_VM_RESOURCE_GROUP__",
-                "resourceName": "__AZURE_VM_NAME__",
-                "subscription": "__AZURE_VM_SUBSCRIPTION_ID__"
+                "region": "$vmRegion",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
               }
             ],
             "timeGrain": "auto"
@@ -566,7 +566,7 @@
           },
           "queryType": "Azure Monitor",
           "refId": "A",
-          "subscription": "__AZURE_VM_SUBSCRIPTION_ID__",
+          "subscription": "$subscription",
           "subscriptions": []
         }
       ],
@@ -634,10 +634,10 @@
             "resources": [
               {
                 "metricNamespace": "Microsoft.Compute/virtualMachines",
-                "region": "__AZURE_VM_REGION__",
-                "resourceGroup": "__AZURE_VM_RESOURCE_GROUP__",
-                "resourceName": "__AZURE_VM_NAME__",
-                "subscription": "__AZURE_VM_SUBSCRIPTION_ID__"
+                "region": "$vmRegion",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
               }
             ],
             "timeGrain": "auto"
@@ -648,7 +648,7 @@
           },
           "queryType": "Azure Monitor",
           "refId": "A",
-          "subscription": "__AZURE_VM_SUBSCRIPTION_ID__",
+          "subscription": "$subscription",
           "subscriptions": []
         }
       ],
@@ -715,10 +715,10 @@
             "resources": [
               {
                 "metricNamespace": "Microsoft.Compute/virtualMachines",
-                "region": "__AZURE_VM_REGION__",
-                "resourceGroup": "__AZURE_VM_RESOURCE_GROUP__",
-                "resourceName": "__AZURE_VM_NAME__",
-                "subscription": "__AZURE_VM_SUBSCRIPTION_ID__"
+                "region": "$vmRegion",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
               }
             ],
             "timeGrain": "auto"
@@ -729,7 +729,7 @@
           },
           "queryType": "Azure Monitor",
           "refId": "A",
-          "subscription": "__AZURE_VM_SUBSCRIPTION_ID__",
+          "subscription": "$subscription",
           "subscriptions": []
         }
       ],
@@ -780,7 +780,7 @@
       "targets": [
         {
           "azureResourceGraph": {
-            "query": "resources\n| where type =~ 'microsoft.compute/disks'\n| where managedBy =~ '__NATIVE_VM_RESOURCE_ID__'\n| extend VM = tostring(split(managedBy, '/')[-1])\n| project VM, DiskName = name, Sku = tostring(sku.name), SizeGiB = toint(properties.diskSizeGB), MaxIOPS = toint(properties.diskIOPSReadWrite), MaxThroughputMBps = toint(properties.diskMBpsReadWrite)\n| order by MaxIOPS desc",
+            "query": "resources\n| where type =~ 'microsoft.compute/disks'\n| extend VM = tostring(split(managedBy, '/')[-1])\n| where VM =~ '$nativeVm'\n| project VM, DiskName = name, Sku = tostring(sku.name), SizeGiB = toint(properties.diskSizeGB), MaxIOPS = toint(properties.diskIOPSReadWrite), MaxThroughputMBps = toint(properties.diskMBpsReadWrite)\n| order by MaxIOPS desc",
             "resultFormat": "table"
           },
           "datasource": {
@@ -790,7 +790,7 @@
           "queryType": "Azure Resource Graph",
           "refId": "A",
           "subscriptions": [
-            "__AZURE_VM_SUBSCRIPTION_ID__"
+            "$subscription"
           ]
         }
       ],
@@ -828,7 +828,7 @@
       "targets": [
         {
           "azureResourceGraph": {
-            "query": "resources\n| where type =~ 'microsoft.compute/disks'\n| where managedBy =~ '__NATIVE_VM_RESOURCE_ID__'\n| extend VM = tostring(split(managedBy, '/')[-1])\n| summarize Disks = count(), TotalProvisionedIOPS = sum(toint(properties.diskIOPSReadWrite)), TotalProvisionedThroughputMBps = sum(toint(properties.diskMBpsReadWrite)) by VM\n| order by VM asc",
+            "query": "resources\n| where type =~ 'microsoft.compute/disks'\n| extend VM = tostring(split(managedBy, '/')[-1])\n| where VM =~ '$nativeVm'\n| summarize Disks = count(), TotalProvisionedIOPS = sum(toint(properties.diskIOPSReadWrite)), TotalProvisionedThroughputMBps = sum(toint(properties.diskMBpsReadWrite)) by VM\n| order by VM asc",
             "resultFormat": "table"
           },
           "datasource": {
@@ -838,7 +838,7 @@
           "queryType": "Azure Resource Graph",
           "refId": "A",
           "subscriptions": [
-            "__AZURE_VM_SUBSCRIPTION_ID__"
+            "$subscription"
           ]
         }
       ],
@@ -859,7 +859,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "### VM SKU maximum limits \u2014 __VM_SKU_SIZE__\n\nAbsolute aggregate ceilings published for the VM SKU. The VM cached and uncached consumed % charts below measure activity against them. When the total provisioned disk limits above exceed these numbers, the disks are over-provisioned and the VM throttles first. `N/A` means the value is not published for this VM series.\n\n| Scope | Max IOPS | Max throughput (MB/s) |\n|---|---|---|\n| VM uncached (remote data disks) | __VM_SKU_MAX_UNCACHED_IOPS__ | __VM_SKU_MAX_UNCACHED_MBPS__ |\n| VM cached (temp disk + host cache) | __VM_SKU_MAX_CACHED_IOPS__ | __VM_SKU_MAX_CACHED_MBPS__ |",
+        "content": "### VM SKU maximum limits \u2014 __VM_SKU_SIZE__\n\nAbsolute aggregate ceilings published for the deployment's reference VM SKU (re-deploy to change). The VM cached and uncached consumed % charts below measure activity against them. When the total provisioned disk limits above exceed these numbers, the disks are over-provisioned and the VM throttles first. `N/A` means the value is not published for this VM series.\n\n| Scope | Max IOPS | Max throughput (MB/s) |\n|---|---|---|\n| VM uncached (remote data disks) | __VM_SKU_MAX_UNCACHED_IOPS__ | __VM_SKU_MAX_UNCACHED_MBPS__ |\n| VM cached (temp disk + host cache) | __VM_SKU_MAX_CACHED_IOPS__ | __VM_SKU_MAX_CACHED_MBPS__ |",
         "mode": "markdown"
       },
       "pluginVersion": "12.4.8",
@@ -918,10 +918,10 @@
             "resources": [
               {
                 "metricNamespace": "Microsoft.Compute/virtualMachines",
-                "region": "__AZURE_VM_REGION__",
-                "resourceGroup": "__AZURE_VM_RESOURCE_GROUP__",
-                "resourceName": "__AZURE_VM_NAME__",
-                "subscription": "__AZURE_VM_SUBSCRIPTION_ID__"
+                "region": "$vmRegion",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
               }
             ],
             "timeGrain": "auto"
@@ -932,7 +932,7 @@
           },
           "queryType": "Azure Monitor",
           "refId": "A",
-          "subscription": "__AZURE_VM_SUBSCRIPTION_ID__",
+          "subscription": "$subscription",
           "subscriptions": []
         },
         {
@@ -946,10 +946,10 @@
             "resources": [
               {
                 "metricNamespace": "Microsoft.Compute/virtualMachines",
-                "region": "__AZURE_VM_REGION__",
-                "resourceGroup": "__AZURE_VM_RESOURCE_GROUP__",
-                "resourceName": "__AZURE_VM_NAME__",
-                "subscription": "__AZURE_VM_SUBSCRIPTION_ID__"
+                "region": "$vmRegion",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
               }
             ],
             "timeGrain": "auto"
@@ -960,7 +960,7 @@
           },
           "queryType": "Azure Monitor",
           "refId": "B",
-          "subscription": "__AZURE_VM_SUBSCRIPTION_ID__",
+          "subscription": "$subscription",
           "subscriptions": []
         }
       ],
@@ -1019,10 +1019,10 @@
             "resources": [
               {
                 "metricNamespace": "Microsoft.Compute/virtualMachines",
-                "region": "__AZURE_VM_REGION__",
-                "resourceGroup": "__AZURE_VM_RESOURCE_GROUP__",
-                "resourceName": "__AZURE_VM_NAME__",
-                "subscription": "__AZURE_VM_SUBSCRIPTION_ID__"
+                "region": "$vmRegion",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
               }
             ],
             "timeGrain": "auto"
@@ -1033,7 +1033,7 @@
           },
           "queryType": "Azure Monitor",
           "refId": "A",
-          "subscription": "__AZURE_VM_SUBSCRIPTION_ID__",
+          "subscription": "$subscription",
           "subscriptions": []
         },
         {
@@ -1047,10 +1047,10 @@
             "resources": [
               {
                 "metricNamespace": "Microsoft.Compute/virtualMachines",
-                "region": "__AZURE_VM_REGION__",
-                "resourceGroup": "__AZURE_VM_RESOURCE_GROUP__",
-                "resourceName": "__AZURE_VM_NAME__",
-                "subscription": "__AZURE_VM_SUBSCRIPTION_ID__"
+                "region": "$vmRegion",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
               }
             ],
             "timeGrain": "auto"
@@ -1061,7 +1061,7 @@
           },
           "queryType": "Azure Monitor",
           "refId": "B",
-          "subscription": "__AZURE_VM_SUBSCRIPTION_ID__",
+          "subscription": "$subscription",
           "subscriptions": []
         }
       ],
@@ -1185,6 +1185,329 @@
       ],
       "title": "Total guest throughput across all disks by machine",
       "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 72
+      },
+      "id": 19,
+      "panels": [],
+      "title": "Throttling hotspots (selected VM)",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "description": "Peak Data Disk consumed percentage per LUN over the window. Any tile at or above 95% means that individual disk is hitting its own provisioned IOPS or bandwidth limit.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 73
+      },
+      "id": 20,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureMonitor": {
+            "aggregation": "Maximum",
+            "alias": "Disk IOPS LUN {{ dimensionvalue }}",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "dimensionFilters": [
+              {
+                "dimension": "LUN",
+                "filters": [
+                  "*"
+                ],
+                "operator": "eq"
+              }
+            ],
+            "metricName": "Data Disk IOPS Consumed Percentage",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "$vmRegion",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "A",
+          "subscription": "$subscription",
+          "subscriptions": []
+        },
+        {
+          "azureMonitor": {
+            "aggregation": "Maximum",
+            "alias": "Disk BW LUN {{ dimensionvalue }}",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "dimensionFilters": [
+              {
+                "dimension": "LUN",
+                "filters": [
+                  "*"
+                ],
+                "operator": "eq"
+              }
+            ],
+            "metricName": "Data Disk Bandwidth Consumed Percentage",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "$vmRegion",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "B",
+          "subscription": "$subscription",
+          "subscriptions": []
+        }
+      ],
+      "title": "Disks at their disk limit \u2014 peak consumed % by LUN",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "description": "Peak VM SKU consumed percentage across all disks over the window. Any tile at or above 95% means the VM SKU aggregate limit is throttling before any single disk.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 73
+      },
+      "id": 21,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureMonitor": {
+            "aggregation": "Maximum",
+            "alias": "Cached IOPS",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "metricName": "VM Cached IOPS Consumed Percentage",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "$vmRegion",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "A",
+          "subscription": "$subscription",
+          "subscriptions": []
+        },
+        {
+          "azureMonitor": {
+            "aggregation": "Maximum",
+            "alias": "Uncached IOPS",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "metricName": "VM Uncached IOPS Consumed Percentage",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "$vmRegion",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "B",
+          "subscription": "$subscription",
+          "subscriptions": []
+        },
+        {
+          "azureMonitor": {
+            "aggregation": "Maximum",
+            "alias": "Cached bandwidth",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "metricName": "VM Cached Bandwidth Consumed Percentage",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "$vmRegion",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "C",
+          "subscription": "$subscription",
+          "subscriptions": []
+        },
+        {
+          "azureMonitor": {
+            "aggregation": "Maximum",
+            "alias": "Uncached bandwidth",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "metricName": "VM Uncached Bandwidth Consumed Percentage",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "$vmRegion",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "D",
+          "subscription": "$subscription",
+          "subscriptions": []
+        }
+      ],
+      "title": "VM SKU aggregate \u2014 peak consumed %",
+      "type": "stat"
     }
   ],
   "refresh": "1m",
@@ -1197,6 +1520,112 @@
   ],
   "templating": {
     "list": [
+      {
+        "current": {},
+        "datasource": {
+          "type": "grafana-azure-monitor-datasource",
+          "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+        },
+        "includeAll": false,
+        "label": "Subscription",
+        "multi": false,
+        "name": "subscription",
+        "options": [],
+        "query": {
+          "queryType": "Azure Subscriptions",
+          "refId": "A"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "grafana-azure-monitor-datasource",
+          "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+        },
+        "includeAll": false,
+        "label": "Resource group",
+        "multi": false,
+        "name": "resourceGroup",
+        "options": [],
+        "query": {
+          "azureResourceGraph": {
+            "query": "resources | where type =~ 'microsoft.compute/virtualmachines' | distinct resourceGroup | order by resourceGroup asc",
+            "resultFormat": "table"
+          },
+          "queryType": "Azure Resource Graph",
+          "refId": "A",
+          "subscriptions": [
+            "$subscription"
+          ]
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "grafana-azure-monitor-datasource",
+          "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+        },
+        "includeAll": false,
+        "label": "Native Azure VM",
+        "multi": false,
+        "name": "nativeVm",
+        "options": [],
+        "query": {
+          "azureResourceGraph": {
+            "query": "resources | where type =~ 'microsoft.compute/virtualmachines' | where resourceGroup =~ '$resourceGroup' | distinct name | order by name asc",
+            "resultFormat": "table"
+          },
+          "queryType": "Azure Resource Graph",
+          "refId": "A",
+          "subscriptions": [
+            "$subscription"
+          ]
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "grafana-azure-monitor-datasource",
+          "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+        },
+        "hide": 2,
+        "includeAll": false,
+        "label": "VM region",
+        "multi": false,
+        "name": "vmRegion",
+        "options": [],
+        "query": {
+          "azureResourceGraph": {
+            "query": "resources | where type =~ 'microsoft.compute/virtualmachines' | where resourceGroup =~ '$resourceGroup' and name =~ '$nativeVm' | distinct location",
+            "resultFormat": "table"
+          },
+          "queryType": "Azure Resource Graph",
+          "refId": "A",
+          "subscriptions": [
+            "$subscription"
+          ]
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
       {
         "current": {
           "text": "All",
