@@ -1,0 +1,11 @@
+let Lookback = 24h;
+InsightsMetrics
+| where TimeGenerated > ago(Lookback)
+| where Namespace == 'LogicalDisk' and Name == 'BytesPerSecond'
+| extend Mount = tostring(todynamic(Tags)['vm.azm.ms/mountId'])
+| where isnotempty(Mount)
+| where Mount !startswith '/snap/' and Mount !startswith '/sys/'
+| summarize MountMBps = avg(Val) / 1024 / 1024 by bin(TimeGenerated, 5m), Computer, Mount
+| summarize TotalThroughputMBps = sum(MountMBps) by TimeGenerated, Computer
+| project TimeGenerated, Series = Computer, TotalThroughputMBps
+| order by TimeGenerated asc

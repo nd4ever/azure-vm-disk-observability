@@ -403,6 +403,175 @@
           }
         ]
       }
+    },
+    {
+      "type": 1,
+      "name": "DiskVsVmHeading",
+      "content": {
+        "json": "## Disk limit vs VM SKU limit\n\nUse this section to tell whether throttling comes from a single disk or from the VM SKU aggregate. Compare the per-LUN Data disk consumed % charts above with the VM cached and uncached consumed % charts below. A metric at or above 95% for five consecutive minutes indicates throttling at that scope.\n\n* A single LUN near 100% while the VM metrics stay low means the individual disk IOPS or bandwidth limit is the bottleneck. Increase that disk's size or performance tier.\n* A VM cached or uncached metric near 100% while no single disk saturates means the VM SKU aggregate limit is the bottleneck. Resize the VM or enable host caching where appropriate.\n\nThe provisioned-limits table reports each disk's maximum IOPS and MiB/s from its disk SKU. The totals row sums those limits across all attached disks. When the summed disk limits exceed the VM SKU maximums, the disks are over-provisioned and the VM throttles before any single disk does."
+      }
+    },
+    {
+      "type": 3,
+      "name": "DiskProvisionedLimits",
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "where type =~ 'microsoft.compute/disks'\n| where managedBy in~ ({VirtualMachines})\n| extend VM = tostring(split(managedBy, '/')[-1])\n| project VM, DiskName = name, Sku = tostring(sku.name), SizeGiB = toint(properties.diskSizeGB), MaxIOPS = toint(properties.diskIOPSReadWrite), MaxThroughputMBps = toint(properties.diskMBpsReadWrite)\n| order by VM asc, MaxIOPS desc",
+        "size": 0,
+        "title": "Provisioned per-disk limits (disk SKU)",
+        "queryType": 1,
+        "resourceType": "microsoft.resourcegraph/resources",
+        "crossComponentResources": [
+          "value::all"
+        ],
+        "visualization": "table",
+        "gridSettings": {
+          "filter": true,
+          "showExportToExcel": true,
+          "labelSettings": [
+            {
+              "columnId": "SizeGiB",
+              "label": "Size (GiB)"
+            },
+            {
+              "columnId": "MaxIOPS",
+              "label": "Max IOPS"
+            },
+            {
+              "columnId": "MaxThroughputMBps",
+              "label": "Max throughput (MiB/s)"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": 3,
+      "name": "VmTotalProvisioned",
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "where type =~ 'microsoft.compute/disks'\n| where managedBy in~ ({VirtualMachines})\n| extend VM = tostring(split(managedBy, '/')[-1])\n| summarize Disks = count(), TotalProvisionedIOPS = sum(toint(properties.diskIOPSReadWrite)), TotalProvisionedThroughputMBps = sum(toint(properties.diskMBpsReadWrite)) by VM\n| order by VM asc",
+        "size": 0,
+        "title": "Total provisioned limits across all disks",
+        "queryType": 1,
+        "resourceType": "microsoft.resourcegraph/resources",
+        "crossComponentResources": [
+          "value::all"
+        ],
+        "visualization": "table",
+        "gridSettings": {
+          "filter": true,
+          "showExportToExcel": true,
+          "labelSettings": [
+            {
+              "columnId": "TotalProvisionedIOPS",
+              "label": "Total max IOPS (all disks)"
+            },
+            {
+              "columnId": "TotalProvisionedThroughputMBps",
+              "label": "Total max throughput (MiB/s, all disks)"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": 10,
+      "name": "VmIopsConsumed",
+      "content": {
+        "chartId": "1d6a1c94-2b1e-4d3a-9c8f-2a0b7e9d5c11",
+        "version": "MetricsItem/2.0",
+        "size": 0,
+        "chartType": 2,
+        "title": "VM IOPS consumed: cached vs uncached (%) \u2014 {VirtualMachines:label}",
+        "resourceIds": [
+          "{VirtualMachines}"
+        ],
+        "timeContext": {
+          "durationMs": 0
+        },
+        "timeContextFromParameter": "TimeRange",
+        "resourceType": "microsoft.compute/virtualmachines",
+        "resourceParameter": "VirtualMachines",
+        "metrics": [
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--VM Cached IOPS Consumed Percentage",
+            "aggregation": 4
+          },
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--VM Uncached IOPS Consumed Percentage",
+            "aggregation": 4
+          }
+        ]
+      }
+    },
+    {
+      "type": 10,
+      "name": "VmBandwidthConsumed",
+      "content": {
+        "chartId": "2e7b2da5-3c2f-4e4b-ad90-3b1c8f0e6d22",
+        "version": "MetricsItem/2.0",
+        "size": 0,
+        "chartType": 2,
+        "title": "VM bandwidth consumed: cached vs uncached (%) \u2014 {VirtualMachines:label}",
+        "resourceIds": [
+          "{VirtualMachines}"
+        ],
+        "timeContext": {
+          "durationMs": 0
+        },
+        "timeContextFromParameter": "TimeRange",
+        "resourceType": "microsoft.compute/virtualmachines",
+        "resourceParameter": "VirtualMachines",
+        "metrics": [
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--VM Cached Bandwidth Consumed Percentage",
+            "aggregation": 4
+          },
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--VM Uncached Bandwidth Consumed Percentage",
+            "aggregation": 4
+          }
+        ]
+      }
+    },
+    {
+      "type": 3,
+      "name": "TotalGuestIops",
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "InsightsMetrics\n| where TimeGenerated {TimeRange}\n| where Namespace == 'LogicalDisk' and Name == 'TransfersPerSecond'\n| extend Mount = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| where isnotempty(Mount)\n| where Mount !startswith '/snap/' and Mount !startswith '/sys/'\n| where '*' in ({Computer}) or Computer in ({Computer})\n| where '*' in ({Mount}) or Mount in ({Mount})\n| summarize MountIOPS = avg(Val) by bin(TimeGenerated, 5m), Computer, Mount\n| summarize TotalIOPS = sum(MountIOPS) by TimeGenerated, Computer\n| project TimeGenerated, Series = Computer, TotalIOPS\n| order by TimeGenerated asc",
+        "size": 0,
+        "title": "Total guest IOPS across all disks by machine",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspace}"
+        ],
+        "visualization": "timechart"
+      }
+    },
+    {
+      "type": 3,
+      "name": "TotalGuestThroughput",
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "InsightsMetrics\n| where TimeGenerated {TimeRange}\n| where Namespace == 'LogicalDisk' and Name == 'BytesPerSecond'\n| extend Mount = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| where isnotempty(Mount)\n| where Mount !startswith '/snap/' and Mount !startswith '/sys/'\n| where '*' in ({Computer}) or Computer in ({Computer})\n| where '*' in ({Mount}) or Mount in ({Mount})\n| summarize MountMBps = avg(Val) / 1024 / 1024 by bin(TimeGenerated, 5m), Computer, Mount\n| summarize TotalThroughputMBps = sum(MountMBps) by TimeGenerated, Computer\n| project TimeGenerated, Series = Computer, TotalThroughputMBps\n| order by TimeGenerated asc",
+        "size": 0,
+        "title": "Total guest throughput across all disks by machine (MiB/s)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspace}"
+        ],
+        "visualization": "timechart"
+      }
     }
   ]
 }

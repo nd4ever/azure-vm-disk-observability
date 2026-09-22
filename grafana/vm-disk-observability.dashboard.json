@@ -735,6 +735,435 @@
       ],
       "title": "Latency by LUN",
       "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 41
+      },
+      "id": 11,
+      "panels": [],
+      "title": "Disk limit vs VM SKU limit",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "description": "Provisioned maximum IOPS and throughput for each disk attached to the native Azure VM, read live from the disk SKU with Azure Resource Graph.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 42
+      },
+      "id": 12,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureResourceGraph": {
+            "query": "resources\n| where type =~ 'microsoft.compute/disks'\n| where managedBy =~ '__NATIVE_VM_RESOURCE_ID__'\n| extend VM = tostring(split(managedBy, '/')[-1])\n| project VM, DiskName = name, Sku = tostring(sku.name), SizeGiB = toint(properties.diskSizeGB), MaxIOPS = toint(properties.diskIOPSReadWrite), MaxThroughputMBps = toint(properties.diskMBpsReadWrite)\n| order by MaxIOPS desc",
+            "resultFormat": "table"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Resource Graph",
+          "refId": "A",
+          "subscriptions": [
+            "__AZURE_VM_SUBSCRIPTION_ID__"
+          ]
+        }
+      ],
+      "title": "Provisioned per-disk limits (disk SKU)",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "description": "Sum of the provisioned disk IOPS and throughput across every disk attached to the native Azure VM. Compare these totals with the VM SKU maximums to spot over-provisioning.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 42
+      },
+      "id": 13,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureResourceGraph": {
+            "query": "resources\n| where type =~ 'microsoft.compute/disks'\n| where managedBy =~ '__NATIVE_VM_RESOURCE_ID__'\n| extend VM = tostring(split(managedBy, '/')[-1])\n| summarize Disks = count(), TotalProvisionedIOPS = sum(toint(properties.diskIOPSReadWrite)), TotalProvisionedThroughputMBps = sum(toint(properties.diskMBpsReadWrite)) by VM\n| order by VM asc",
+            "resultFormat": "table"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Resource Graph",
+          "refId": "A",
+          "subscriptions": [
+            "__AZURE_VM_SUBSCRIPTION_ID__"
+          ]
+        }
+      ],
+      "title": "Total provisioned limits across all disks",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "description": "VM SKU IOPS saturation. A cached or uncached series near 100% means the VM SKU aggregate IOPS limit throttles before any single disk.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "max": 100,
+          "min": 0,
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 50
+      },
+      "id": 14,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureMonitor": {
+            "aggregation": "Average",
+            "alias": "Cached IOPS consumed %",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "metricName": "VM Cached IOPS Consumed Percentage",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "__AZURE_VM_REGION__",
+                "resourceGroup": "__AZURE_VM_RESOURCE_GROUP__",
+                "resourceName": "__AZURE_VM_NAME__",
+                "subscription": "__AZURE_VM_SUBSCRIPTION_ID__"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "A",
+          "subscription": "__AZURE_VM_SUBSCRIPTION_ID__",
+          "subscriptions": []
+        },
+        {
+          "azureMonitor": {
+            "aggregation": "Average",
+            "alias": "Uncached IOPS consumed %",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "metricName": "VM Uncached IOPS Consumed Percentage",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "__AZURE_VM_REGION__",
+                "resourceGroup": "__AZURE_VM_RESOURCE_GROUP__",
+                "resourceName": "__AZURE_VM_NAME__",
+                "subscription": "__AZURE_VM_SUBSCRIPTION_ID__"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "B",
+          "subscription": "__AZURE_VM_SUBSCRIPTION_ID__",
+          "subscriptions": []
+        }
+      ],
+      "title": "VM IOPS consumed: cached vs uncached (%)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "description": "VM SKU bandwidth saturation. A cached or uncached series near 100% means the VM SKU aggregate throughput limit throttles before any single disk.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "max": 100,
+          "min": 0,
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 50
+      },
+      "id": 15,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureMonitor": {
+            "aggregation": "Average",
+            "alias": "Cached bandwidth consumed %",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "metricName": "VM Cached Bandwidth Consumed Percentage",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "__AZURE_VM_REGION__",
+                "resourceGroup": "__AZURE_VM_RESOURCE_GROUP__",
+                "resourceName": "__AZURE_VM_NAME__",
+                "subscription": "__AZURE_VM_SUBSCRIPTION_ID__"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "A",
+          "subscription": "__AZURE_VM_SUBSCRIPTION_ID__",
+          "subscriptions": []
+        },
+        {
+          "azureMonitor": {
+            "aggregation": "Average",
+            "alias": "Uncached bandwidth consumed %",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "metricName": "VM Uncached Bandwidth Consumed Percentage",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "__AZURE_VM_REGION__",
+                "resourceGroup": "__AZURE_VM_RESOURCE_GROUP__",
+                "resourceName": "__AZURE_VM_NAME__",
+                "subscription": "__AZURE_VM_SUBSCRIPTION_ID__"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "B",
+          "subscription": "__AZURE_VM_SUBSCRIPTION_ID__",
+          "subscriptions": []
+        }
+      ],
+      "title": "VM bandwidth consumed: cached vs uncached (%)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "description": "Guest IOPS summed across all logical disks per machine, showing the aggregate demand placed against the VM SKU limit.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "min": 0,
+          "unit": "iops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 59
+      },
+      "id": 16,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "query": "InsightsMetrics\n| where $__timeFilter(TimeGenerated)\n| where Namespace == 'LogicalDisk' and Name == 'TransfersPerSecond'\n| extend Mount = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| where isnotempty(Mount)\n| where Mount !startswith '/snap/' and Mount !startswith '/sys/'\n| where '${computer:raw}' == '*' or Computer in (${computer:singlequote})\n| where '${mount:raw}' == '*' or Mount in (${mount:singlequote})\n| summarize MountIOPS = avg(Val) by bin(TimeGenerated, 5m), Computer, Mount\n| summarize TotalIOPS = sum(MountIOPS) by TimeGenerated, Computer\n| project TimeGenerated, Series = Computer, TotalIOPS\n| order by TimeGenerated asc",
+            "resource": "__WORKSPACE_RESOURCE_ID__",
+            "resultFormat": "time_series"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "__WORKSPACE_SUBSCRIPTION_ID__",
+          "subscriptions": []
+        }
+      ],
+      "title": "Total guest IOPS across all disks by machine",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "description": "Guest throughput summed across all logical disks per machine, showing the aggregate demand placed against the VM SKU limit.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "min": 0,
+          "unit": "MBs"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 59
+      },
+      "id": 17,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "query": "InsightsMetrics\n| where $__timeFilter(TimeGenerated)\n| where Namespace == 'LogicalDisk' and Name == 'BytesPerSecond'\n| extend Mount = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| where isnotempty(Mount)\n| where Mount !startswith '/snap/' and Mount !startswith '/sys/'\n| where '${computer:raw}' == '*' or Computer in (${computer:singlequote})\n| where '${mount:raw}' == '*' or Mount in (${mount:singlequote})\n| summarize MountMBps = avg(Val) / 1024 / 1024 by bin(TimeGenerated, 5m), Computer, Mount\n| summarize TotalThroughputMBps = sum(MountMBps) by TimeGenerated, Computer\n| project TimeGenerated, Series = Computer, TotalThroughputMBps\n| order by TimeGenerated asc",
+            "resource": "__WORKSPACE_RESOURCE_ID__",
+            "resultFormat": "time_series"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "__WORKSPACE_SUBSCRIPTION_ID__",
+          "subscriptions": []
+        }
+      ],
+      "title": "Total guest throughput across all disks by machine",
+      "type": "timeseries"
     }
   ],
   "refresh": "1m",

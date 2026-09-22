@@ -25,6 +25,30 @@ Native Azure VM panels use platform metrics split by LUN for:
 The consumed-percentage panels compare total activity with provisioned disk limits,
 so operators do not need to combine read and write charts manually.
 
+## Disk limit vs VM SKU limit
+
+Both experiences include a **Disk limit vs VM SKU limit** section that isolates whether
+throttling comes from a single disk or from the VM SKU aggregate:
+
+* Per-LUN *Data Disk IOPS/Bandwidth Consumed Percentage* shows when an individual disk
+  reaches its own provisioned limit.
+* *VM Cached/Uncached IOPS/Bandwidth Consumed Percentage* shows when the VM SKU aggregate
+  limit is reached, even while no single disk saturates.
+
+A metric at or above 95% for five consecutive minutes indicates throttling at that scope.
+A single LUN near 100% while the VM metrics stay low points to the disk; a VM cached or
+uncached metric near 100% while no single disk saturates points to the VM SKU.
+
+A live Azure Resource Graph table reports each disk's maximum IOPS and MiB/s from its disk
+SKU, plus the totals summed across all attached disks. When the summed disk limits exceed
+the VM SKU maximums, the disks are over-provisioned and the VM throttles first. Guest-side
+`vm-total-iops-timeseries.kql` and `vm-total-throughput-timeseries.kql` chart the aggregate
+demand across all logical disks per machine.
+
+The absolute VM SKU maximums (max uncached IOPS and MiB/s) are not exposed by Azure Resource
+Graph; retrieve them from the VM series documentation or
+`az vm list-skus --location <region> --size <vmSize> --query "[].capabilities"`.
+
 ## Deployment model
 
 The repository contains no tenant, subscription, resource group, workspace, VM, or

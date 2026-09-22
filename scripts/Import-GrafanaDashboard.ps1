@@ -183,6 +183,7 @@ if ($MyInvocation.InvocationName -ne '.') {
             '__AZURE_VM_RESOURCE_GROUP__' = $NativeVmParts.ResourceGroupName
             '__AZURE_VM_NAME__' = $NativeVmParts.Name
             '__AZURE_VM_REGION__' = $NativeVmResource.location
+            '__NATIVE_VM_RESOURCE_ID__' = $NativeVmResourceId
         }
 
         foreach ($Replacement in $Replacements.GetEnumerator()) {
