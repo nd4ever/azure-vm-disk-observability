@@ -18,6 +18,25 @@ aggregate?* — and then provide detailed trends, provisioned-limit references, 
 disk inventory for context. Hybrid views work for Azure Arc connected servers and native
 Azure VMs monitored by VM Insights.
 
+## Workbook editions
+
+The deployment publishes two Azure Monitor Workbooks:
+
+* **VM Disk Observability** (default display name `VM Disk Observability`) — the full
+  experience, including the VM Insights guest disk inventory (per-mount performance and
+  filesystem capacity) and Azure Arc coverage. The guest section reads from Log Analytics,
+  which incurs Azure Monitor Agent and ingestion cost.
+* **Azure VM Disk SKU Limits (free)** — a cost-free, **Azure VM only** edition built
+  entirely on free Azure Monitor platform metrics and Azure Resource Graph. It contains
+  the throttling diagnosis, consumed-% trends, and provisioned-limit reference, but omits
+  the VM Insights guest inventory and Azure Arc machines. Set
+  `shouldDeployAzureVmOnlyWorkbook` to `false` to skip it, or change its name with
+  `azureVmOnlyWorkbookDisplayName`.
+
+The diagnosis, trend, and provisioned-limit sections use only free platform metrics and
+Resource Graph in both editions; only the guest inventory in the full workbook uses
+VM Insights.
+
 ## How to read the dashboards
 
 Both experiences are organized top-to-bottom in the order you troubleshoot: **diagnosis
