@@ -1554,8 +1554,9 @@
           "type": "grafana-azure-monitor-datasource",
           "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
         },
-        "hide": 2,
+        "hide": 0,
         "includeAll": false,
+        "label": "Subscription (auto)",
         "name": "vmSubscription",
         "options": [],
         "query": {
@@ -1581,8 +1582,9 @@
           "type": "grafana-azure-monitor-datasource",
           "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
         },
-        "hide": 2,
+        "hide": 0,
         "includeAll": false,
+        "label": "Resource group (auto)",
         "name": "vmResourceGroup",
         "options": [],
         "query": {
@@ -1608,8 +1610,9 @@
           "type": "grafana-azure-monitor-datasource",
           "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
         },
-        "hide": 2,
+        "hide": 0,
         "includeAll": false,
+        "label": "Region (auto)",
         "name": "vmRegion",
         "options": [],
         "query": {
