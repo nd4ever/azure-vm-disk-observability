@@ -1037,6 +1037,292 @@
         "type": "grafana-azure-monitor-datasource",
         "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
       },
+      "description": "Sum of read + write IOPS across all data-disk LUNs at each moment, then the peak over the window. Compare against the provisioned Total max IOPS.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "unit": "iops",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 0,
+        "y": 51
+      },
+      "id": 30,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "/^Total used IOPS$/",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureMonitor": {
+            "aggregation": "Maximum",
+            "alias": "Read LUN {{ dimensionvalue }}",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "dimensionFilters": [
+              {
+                "dimension": "LUN",
+                "filters": [
+                  "*"
+                ],
+                "operator": "eq"
+              }
+            ],
+            "metricName": "Data Disk Read Operations/Sec",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "A",
+          "subscription": "$subscription",
+          "subscriptions": []
+        },
+        {
+          "azureMonitor": {
+            "aggregation": "Maximum",
+            "alias": "Write LUN {{ dimensionvalue }}",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "dimensionFilters": [
+              {
+                "dimension": "LUN",
+                "filters": [
+                  "*"
+                ],
+                "operator": "eq"
+              }
+            ],
+            "metricName": "Data Disk Write Operations/Sec",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "B",
+          "subscription": "$subscription",
+          "subscriptions": []
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "calculateField",
+          "options": {
+            "mode": "reduceRow",
+            "reduce": {
+              "reducer": "sum"
+            },
+            "alias": "Total used IOPS",
+            "replaceFields": false
+          }
+        }
+      ],
+      "title": "Peak total used IOPS (all disks)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "description": "Sum of read + write throughput across all data-disk LUNs at each moment, then the peak over the window. Compare against the provisioned Total max throughput.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "unit": "Bps",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 12,
+        "y": 51
+      },
+      "id": 31,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "/^Total used throughput$/",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureMonitor": {
+            "aggregation": "Maximum",
+            "alias": "Read LUN {{ dimensionvalue }}",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "dimensionFilters": [
+              {
+                "dimension": "LUN",
+                "filters": [
+                  "*"
+                ],
+                "operator": "eq"
+              }
+            ],
+            "metricName": "Data Disk Read Bytes/sec",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "A",
+          "subscription": "$subscription",
+          "subscriptions": []
+        },
+        {
+          "azureMonitor": {
+            "aggregation": "Maximum",
+            "alias": "Write LUN {{ dimensionvalue }}",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "dimensionFilters": [
+              {
+                "dimension": "LUN",
+                "filters": [
+                  "*"
+                ],
+                "operator": "eq"
+              }
+            ],
+            "metricName": "Data Disk Write Bytes/sec",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "B",
+          "subscription": "$subscription",
+          "subscriptions": []
+        }
+      ],
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "calculateField",
+          "options": {
+            "mode": "reduceRow",
+            "reduce": {
+              "reducer": "sum"
+            },
+            "alias": "Total used throughput",
+            "replaceFields": false
+          }
+        }
+      ],
+      "title": "Peak total used throughput (all disks)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
       "description": "Absolute data-disk IOPS used per LUN (read + write). Compare the peak against the provisioned Max IOPS above.",
       "fieldConfig": {
         "defaults": {
@@ -1059,7 +1345,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 51
+        "y": 55
       },
       "id": 28,
       "options": {
@@ -1183,7 +1469,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 51
+        "y": 55
       },
       "id": 29,
       "options": {
@@ -1283,7 +1569,7 @@
     {
       "gridPos": {
         "x": 0,
-        "y": 59,
+        "y": 63,
         "w": 24,
         "h": 4
       },
@@ -1305,7 +1591,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 63,
+        "y": 67,
         "w": 24,
         "h": 1
       },
@@ -1385,7 +1671,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 64,
+        "y": 68,
         "w": 24,
         "h": 12
       },
@@ -1463,7 +1749,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 76,
+        "y": 80,
         "w": 12,
         "h": 9
       },
@@ -1538,7 +1824,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 76,
+        "y": 80,
         "w": 12,
         "h": 9
       },
@@ -1633,7 +1919,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 85,
+        "y": 89,
         "w": 12,
         "h": 9
       },
@@ -1729,7 +2015,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 85,
+        "y": 89,
         "w": 12,
         "h": 9
       },
@@ -1788,7 +2074,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 94,
+        "y": 98,
         "w": 12,
         "h": 9
       },
@@ -1847,7 +2133,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 94,
+        "y": 98,
         "w": 12,
         "h": 9
       },
