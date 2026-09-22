@@ -10,7 +10,7 @@
       "type": 1,
       "name": "Overview",
       "content": {
-        "json": "# VM Disk Observability\n\nUse the numeric table to rank disks across Azure Arc and Azure VMs, then narrow the charts with the machine and mount filters. Guest metrics are sourced from VM Insights. Native Azure VM charts use platform metrics split by LUN."
+        "json": "# VM Disk Observability\n\nStart at the **Throttling diagnosis** band to tell at a glance whether throttling is coming from a single disk SKU limit or the VM SKU aggregate. Drill into the detailed trend charts to see when and which LUN, then use the provisioned-limit tables and guest inventory for context. Native Azure VM charts use platform metrics split by LUN; guest metrics come from VM Insights."
       }
     },
     {
@@ -177,6 +177,378 @@
     },
     {
       "type": 1,
+      "name": "DiagnosisHeading",
+      "content": {
+        "json": "## Throttling diagnosis \u2014 disk limit or VM SKU limit?\n\nThese four charts show the peak consumed percentage over the selected time range for every selected VM. A series at or above 95% for five consecutive minutes indicates throttling at that scope.\n\n* **A DISK chart reaches ~100%** \u2192 an individual data disk hit its own provisioned IOPS or bandwidth limit \u2192 resize or upgrade that disk.\n* **A VM SKU chart reaches ~100%** \u2192 the VM hit its aggregate IOPS or bandwidth limit across all disks \u2192 resize the VM.\n* **Both high** \u2192 the disk is saturating and rolling up to the VM limit too.\n\nUse the detailed trend charts below to see when it happened and which LUN."
+      }
+    },
+    {
+      "type": 10,
+      "name": "DiagDiskIops",
+      "customWidth": "50%",
+      "content": {
+        "chartId": "a1b2c3d4-0001-4a01-9c01-100000000001",
+        "version": "MetricsItem/2.0",
+        "size": 0,
+        "chartType": 2,
+        "title": "DISK \u2014 IOPS consumed (peak %)",
+        "resourceIds": [
+          "{VirtualMachines}"
+        ],
+        "timeContext": {
+          "durationMs": 0
+        },
+        "timeContextFromParameter": "TimeRange",
+        "resourceType": "microsoft.compute/virtualmachines",
+        "resourceParameter": "VirtualMachines",
+        "metrics": [
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--Data Disk IOPS Consumed Percentage",
+            "aggregation": 2
+          }
+        ]
+      }
+    },
+    {
+      "type": 10,
+      "name": "DiagDiskBw",
+      "customWidth": "50%",
+      "content": {
+        "chartId": "a1b2c3d4-0002-4a02-9c02-100000000002",
+        "version": "MetricsItem/2.0",
+        "size": 0,
+        "chartType": 2,
+        "title": "DISK \u2014 bandwidth consumed (peak %)",
+        "resourceIds": [
+          "{VirtualMachines}"
+        ],
+        "timeContext": {
+          "durationMs": 0
+        },
+        "timeContextFromParameter": "TimeRange",
+        "resourceType": "microsoft.compute/virtualmachines",
+        "resourceParameter": "VirtualMachines",
+        "metrics": [
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--Data Disk Bandwidth Consumed Percentage",
+            "aggregation": 2
+          }
+        ]
+      }
+    },
+    {
+      "type": 10,
+      "name": "DiagVmIops",
+      "customWidth": "50%",
+      "content": {
+        "chartId": "a1b2c3d4-0003-4a03-9c03-100000000003",
+        "version": "MetricsItem/2.0",
+        "size": 0,
+        "chartType": 2,
+        "title": "VM SKU \u2014 IOPS consumed (peak %)",
+        "resourceIds": [
+          "{VirtualMachines}"
+        ],
+        "timeContext": {
+          "durationMs": 0
+        },
+        "timeContextFromParameter": "TimeRange",
+        "resourceType": "microsoft.compute/virtualmachines",
+        "resourceParameter": "VirtualMachines",
+        "metrics": [
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--VM Cached IOPS Consumed Percentage",
+            "aggregation": 2
+          },
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--VM Uncached IOPS Consumed Percentage",
+            "aggregation": 2
+          }
+        ]
+      }
+    },
+    {
+      "type": 10,
+      "name": "DiagVmBw",
+      "customWidth": "50%",
+      "content": {
+        "chartId": "a1b2c3d4-0004-4a04-9c04-100000000004",
+        "version": "MetricsItem/2.0",
+        "size": 0,
+        "chartType": 2,
+        "title": "VM SKU \u2014 bandwidth consumed (peak %)",
+        "resourceIds": [
+          "{VirtualMachines}"
+        ],
+        "timeContext": {
+          "durationMs": 0
+        },
+        "timeContextFromParameter": "TimeRange",
+        "resourceType": "microsoft.compute/virtualmachines",
+        "resourceParameter": "VirtualMachines",
+        "metrics": [
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--VM Cached Bandwidth Consumed Percentage",
+            "aggregation": 2
+          },
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--VM Uncached Bandwidth Consumed Percentage",
+            "aggregation": 2
+          }
+        ]
+      }
+    },
+    {
+      "type": 1,
+      "name": "TrendsHeading",
+      "content": {
+        "json": "## Detailed throttling trends (consumed %)\n\nPer-LUN and cached/uncached breakdowns to pinpoint when throttling occurred and which disk or VM ceiling was involved. Data Disk Latency is a preview metric and requires SCSI-attached disks; it is unavailable for NVMe-attached disks."
+      }
+    },
+    {
+      "type": 10,
+      "name": "LunIopsConsumed",
+      "content": {
+        "chartId": "65fcfe70-3c7a-40ac-a95d-f20dd78cd5fd",
+        "version": "MetricsItem/2.0",
+        "size": 0,
+        "chartType": 2,
+        "title": "Data disk IOPS consumed by LUN (%) \u2014 {VirtualMachines:label}",
+        "resourceIds": [
+          "{VirtualMachines}"
+        ],
+        "timeContext": {
+          "durationMs": 0
+        },
+        "timeContextFromParameter": "TimeRange",
+        "resourceType": "microsoft.compute/virtualmachines",
+        "resourceParameter": "VirtualMachines",
+        "metrics": [
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--Data Disk IOPS Consumed Percentage",
+            "aggregation": 4,
+            "splitBy": "LUN",
+            "splitBySortOrder": -1,
+            "splitByLimit": 50
+          }
+        ]
+      },
+      "customWidth": "50%"
+    },
+    {
+      "type": 10,
+      "name": "LunBandwidthConsumed",
+      "content": {
+        "chartId": "7eaf38ca-bf69-47fa-a365-974393bd2ff3",
+        "version": "MetricsItem/2.0",
+        "size": 0,
+        "chartType": 2,
+        "title": "Data disk bandwidth consumed by LUN (%) \u2014 {VirtualMachines:label}",
+        "resourceIds": [
+          "{VirtualMachines}"
+        ],
+        "timeContext": {
+          "durationMs": 0
+        },
+        "timeContextFromParameter": "TimeRange",
+        "resourceType": "microsoft.compute/virtualmachines",
+        "resourceParameter": "VirtualMachines",
+        "metrics": [
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--Data Disk Bandwidth Consumed Percentage",
+            "aggregation": 4,
+            "splitBy": "LUN",
+            "splitBySortOrder": -1,
+            "splitByLimit": 50
+          }
+        ]
+      },
+      "customWidth": "50%"
+    },
+    {
+      "type": 10,
+      "name": "VmIopsConsumed",
+      "content": {
+        "chartId": "1d6a1c94-2b1e-4d3a-9c8f-2a0b7e9d5c11",
+        "version": "MetricsItem/2.0",
+        "size": 0,
+        "chartType": 2,
+        "title": "VM IOPS consumed: cached vs uncached (%) \u2014 {VirtualMachines:label}",
+        "resourceIds": [
+          "{VirtualMachines}"
+        ],
+        "timeContext": {
+          "durationMs": 0
+        },
+        "timeContextFromParameter": "TimeRange",
+        "resourceType": "microsoft.compute/virtualmachines",
+        "resourceParameter": "VirtualMachines",
+        "metrics": [
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--VM Cached IOPS Consumed Percentage",
+            "aggregation": 4
+          },
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--VM Uncached IOPS Consumed Percentage",
+            "aggregation": 4
+          }
+        ]
+      },
+      "customWidth": "50%"
+    },
+    {
+      "type": 10,
+      "name": "VmBandwidthConsumed",
+      "content": {
+        "chartId": "2e7b2da5-3c2f-4e4b-ad90-3b1c8f0e6d22",
+        "version": "MetricsItem/2.0",
+        "size": 0,
+        "chartType": 2,
+        "title": "VM bandwidth consumed: cached vs uncached (%) \u2014 {VirtualMachines:label}",
+        "resourceIds": [
+          "{VirtualMachines}"
+        ],
+        "timeContext": {
+          "durationMs": 0
+        },
+        "timeContextFromParameter": "TimeRange",
+        "resourceType": "microsoft.compute/virtualmachines",
+        "resourceParameter": "VirtualMachines",
+        "metrics": [
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--VM Cached Bandwidth Consumed Percentage",
+            "aggregation": 4
+          },
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--VM Uncached Bandwidth Consumed Percentage",
+            "aggregation": 4
+          }
+        ]
+      },
+      "customWidth": "50%"
+    },
+    {
+      "type": 10,
+      "name": "LunLatency",
+      "content": {
+        "chartId": "8ad201df-ad35-4bc9-9e14-17d297049fb8",
+        "version": "MetricsItem/2.0",
+        "size": 0,
+        "chartType": 2,
+        "title": "Data disk latency by LUN (ms) \u2014 {VirtualMachines:label}",
+        "resourceIds": [
+          "{VirtualMachines}"
+        ],
+        "timeContext": {
+          "durationMs": 0
+        },
+        "timeContextFromParameter": "TimeRange",
+        "resourceType": "microsoft.compute/virtualmachines",
+        "resourceParameter": "VirtualMachines",
+        "metrics": [
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--Data Disk Latency",
+            "aggregation": 4,
+            "splitBy": "LUN",
+            "splitBySortOrder": -1,
+            "splitByLimit": 50
+          }
+        ]
+      }
+    },
+    {
+      "type": 1,
+      "name": "DiskVsVmHeading",
+      "content": {
+        "json": "## Provisioned limits (reference)\n\nProvisioned per-disk limits and their sum across all disks, plus the absolute VM SKU maximums. When the summed disk limits exceed the VM SKU maximums, the disks are over-provisioned and the VM throttles first. Series are split by Azure data-disk LUN, not by guest drive letter."
+      }
+    },
+    {
+      "type": 3,
+      "name": "DiskProvisionedLimits",
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "where type =~ 'microsoft.compute/disks'\n| where managedBy in~ ({VirtualMachines})\n| extend VM = tostring(split(managedBy, '/')[-1])\n| project VM, DiskName = name, Sku = tostring(sku.name), SizeGiB = toint(properties.diskSizeGB), MaxIOPS = toint(properties.diskIOPSReadWrite), MaxThroughputMBps = toint(properties.diskMBpsReadWrite)\n| order by VM asc, MaxIOPS desc",
+        "size": 0,
+        "title": "Provisioned per-disk limits (disk SKU)",
+        "queryType": 1,
+        "resourceType": "microsoft.resourcegraph/resources",
+        "crossComponentResources": [
+          "value::all"
+        ],
+        "visualization": "table",
+        "gridSettings": {
+          "filter": true,
+          "showExportToExcel": true,
+          "labelSettings": [
+            {
+              "columnId": "SizeGiB",
+              "label": "Size (GiB)"
+            },
+            {
+              "columnId": "MaxIOPS",
+              "label": "Max IOPS"
+            },
+            {
+              "columnId": "MaxThroughputMBps",
+              "label": "Max throughput (MB/s)"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": 3,
+      "name": "VmTotalProvisioned",
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "where type =~ 'microsoft.compute/disks'\n| where managedBy in~ ({VirtualMachines})\n| extend VM = tostring(split(managedBy, '/')[-1])\n| summarize Disks = count(), TotalProvisionedIOPS = sum(toint(properties.diskIOPSReadWrite)), TotalProvisionedThroughputMBps = sum(toint(properties.diskMBpsReadWrite)) by VM\n| order by VM asc",
+        "size": 0,
+        "title": "Total provisioned limits across all disks",
+        "queryType": 1,
+        "resourceType": "microsoft.resourcegraph/resources",
+        "crossComponentResources": [
+          "value::all"
+        ],
+        "visualization": "table",
+        "gridSettings": {
+          "filter": true,
+          "showExportToExcel": true,
+          "labelSettings": [
+            {
+              "columnId": "TotalProvisionedIOPS",
+              "label": "Total max IOPS (all disks)"
+            },
+            {
+              "columnId": "TotalProvisionedThroughputMBps",
+              "label": "Total max throughput (MB/s, all disks)"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": 1,
+      "name": "VmSkuLimits",
+      "content": {
+        "json": "### VM SKU maximum limits \u2014 __VM_SKU_SIZE__\n\nThese are the absolute aggregate ceilings published for the VM SKU. The VM cached and uncached consumed % charts below measure activity against them. When the total provisioned disk limits above exceed these numbers, the disks are over-provisioned and the VM throttles first.\n\n| Scope | Max IOPS | Max throughput (MB/s) |\n|---|---|---|\n| VM uncached (remote data disks) | __VM_SKU_MAX_UNCACHED_IOPS__ | __VM_SKU_MAX_UNCACHED_MBPS__ |\n| VM cached (temp disk + host cache) | __VM_SKU_MAX_CACHED_IOPS__ | __VM_SKU_MAX_CACHED_MBPS__ |\n\nValues shown as N/A are not published for this VM series. Uncached limits apply to remotely attached data disks; cached limits add a separate buffer for reads served from the host cache and temp disk."
+      }
+    },
+    {
+      "type": 1,
       "name": "HybridHeading",
       "content": {
         "json": "## Hybrid disk inventory\n\nThis section works for Azure Arc connected servers and native Azure VMs monitored by VM Insights. Values are grouped by guest logical disk or mount, not Azure LUN."
@@ -308,245 +680,6 @@
       }
     },
     {
-      "type": 1,
-      "name": "NativeHeading",
-      "content": {
-        "json": "## Native Azure VM platform metrics by LUN\n\nThese charts apply only to native Azure VMs. IOPS and bandwidth consumed percentages compare usage with the provisioned disk limit without combining read and write charts manually. Data Disk Latency is a preview metric and requires SCSI-attached disks; it is unavailable for NVMe-attached disks.\n\nSeries are split by Azure data-disk LUN, not by guest drive letter. Multiple LUNs can map to one guest volume when the operating system uses disk pooling, and NVMe-attached operating-system disks are not reported by these charts."
-      }
-    },
-    {
-      "type": 10,
-      "name": "LunIopsConsumed",
-      "content": {
-        "chartId": "65fcfe70-3c7a-40ac-a95d-f20dd78cd5fd",
-        "version": "MetricsItem/2.0",
-        "size": 0,
-        "chartType": 2,
-        "title": "Data disk IOPS consumed by LUN (%) \u2014 {VirtualMachines:label}",
-        "resourceIds": [
-          "{VirtualMachines}"
-        ],
-        "timeContext": {
-          "durationMs": 0
-        },
-        "timeContextFromParameter": "TimeRange",
-        "resourceType": "microsoft.compute/virtualmachines",
-        "resourceParameter": "VirtualMachines",
-        "metrics": [
-          {
-            "namespace": "microsoft.compute/virtualmachines",
-            "metric": "microsoft.compute/virtualmachines--Data Disk IOPS Consumed Percentage",
-            "aggregation": 4,
-            "splitBy": "LUN",
-            "splitBySortOrder": -1,
-            "splitByLimit": 50
-          }
-        ]
-      }
-    },
-    {
-      "type": 10,
-      "name": "LunBandwidthConsumed",
-      "content": {
-        "chartId": "7eaf38ca-bf69-47fa-a365-974393bd2ff3",
-        "version": "MetricsItem/2.0",
-        "size": 0,
-        "chartType": 2,
-        "title": "Data disk bandwidth consumed by LUN (%) \u2014 {VirtualMachines:label}",
-        "resourceIds": [
-          "{VirtualMachines}"
-        ],
-        "timeContext": {
-          "durationMs": 0
-        },
-        "timeContextFromParameter": "TimeRange",
-        "resourceType": "microsoft.compute/virtualmachines",
-        "resourceParameter": "VirtualMachines",
-        "metrics": [
-          {
-            "namespace": "microsoft.compute/virtualmachines",
-            "metric": "microsoft.compute/virtualmachines--Data Disk Bandwidth Consumed Percentage",
-            "aggregation": 4,
-            "splitBy": "LUN",
-            "splitBySortOrder": -1,
-            "splitByLimit": 50
-          }
-        ]
-      }
-    },
-    {
-      "type": 10,
-      "name": "LunLatency",
-      "content": {
-        "chartId": "8ad201df-ad35-4bc9-9e14-17d297049fb8",
-        "version": "MetricsItem/2.0",
-        "size": 0,
-        "chartType": 2,
-        "title": "Data disk latency by LUN (ms) \u2014 {VirtualMachines:label}",
-        "resourceIds": [
-          "{VirtualMachines}"
-        ],
-        "timeContext": {
-          "durationMs": 0
-        },
-        "timeContextFromParameter": "TimeRange",
-        "resourceType": "microsoft.compute/virtualmachines",
-        "resourceParameter": "VirtualMachines",
-        "metrics": [
-          {
-            "namespace": "microsoft.compute/virtualmachines",
-            "metric": "microsoft.compute/virtualmachines--Data Disk Latency",
-            "aggregation": 4,
-            "splitBy": "LUN",
-            "splitBySortOrder": -1,
-            "splitByLimit": 50
-          }
-        ]
-      }
-    },
-    {
-      "type": 1,
-      "name": "DiskVsVmHeading",
-      "content": {
-        "json": "## Disk limit vs VM SKU limit\n\nUse this section to tell whether throttling comes from a single disk or from the VM SKU aggregate. Compare the per-LUN Data disk consumed % charts above with the VM cached and uncached consumed % charts below. A metric at or above 95% for five consecutive minutes indicates throttling at that scope.\n\n* A single LUN near 100% while the VM metrics stay low means the individual disk IOPS or bandwidth limit is the bottleneck. Increase that disk's size or performance tier.\n* A VM cached or uncached metric near 100% while no single disk saturates means the VM SKU aggregate limit is the bottleneck. Resize the VM or enable host caching where appropriate.\n\nThe provisioned-limits table reports each disk's maximum IOPS and MiB/s from its disk SKU. The totals row sums those limits across all attached disks. When the summed disk limits exceed the VM SKU maximums, the disks are over-provisioned and the VM throttles before any single disk does."
-      }
-    },
-    {
-      "type": 3,
-      "name": "DiskProvisionedLimits",
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "where type =~ 'microsoft.compute/disks'\n| where managedBy in~ ({VirtualMachines})\n| extend VM = tostring(split(managedBy, '/')[-1])\n| project VM, DiskName = name, Sku = tostring(sku.name), SizeGiB = toint(properties.diskSizeGB), MaxIOPS = toint(properties.diskIOPSReadWrite), MaxThroughputMBps = toint(properties.diskMBpsReadWrite)\n| order by VM asc, MaxIOPS desc",
-        "size": 0,
-        "title": "Provisioned per-disk limits (disk SKU)",
-        "queryType": 1,
-        "resourceType": "microsoft.resourcegraph/resources",
-        "crossComponentResources": [
-          "value::all"
-        ],
-        "visualization": "table",
-        "gridSettings": {
-          "filter": true,
-          "showExportToExcel": true,
-          "labelSettings": [
-            {
-              "columnId": "SizeGiB",
-              "label": "Size (GiB)"
-            },
-            {
-              "columnId": "MaxIOPS",
-              "label": "Max IOPS"
-            },
-            {
-              "columnId": "MaxThroughputMBps",
-              "label": "Max throughput (MB/s)"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "type": 3,
-      "name": "VmTotalProvisioned",
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "where type =~ 'microsoft.compute/disks'\n| where managedBy in~ ({VirtualMachines})\n| extend VM = tostring(split(managedBy, '/')[-1])\n| summarize Disks = count(), TotalProvisionedIOPS = sum(toint(properties.diskIOPSReadWrite)), TotalProvisionedThroughputMBps = sum(toint(properties.diskMBpsReadWrite)) by VM\n| order by VM asc",
-        "size": 0,
-        "title": "Total provisioned limits across all disks",
-        "queryType": 1,
-        "resourceType": "microsoft.resourcegraph/resources",
-        "crossComponentResources": [
-          "value::all"
-        ],
-        "visualization": "table",
-        "gridSettings": {
-          "filter": true,
-          "showExportToExcel": true,
-          "labelSettings": [
-            {
-              "columnId": "TotalProvisionedIOPS",
-              "label": "Total max IOPS (all disks)"
-            },
-            {
-              "columnId": "TotalProvisionedThroughputMBps",
-              "label": "Total max throughput (MB/s, all disks)"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "type": 1,
-      "name": "VmSkuLimits",
-      "content": {
-        "json": "### VM SKU maximum limits \u2014 __VM_SKU_SIZE__\n\nThese are the absolute aggregate ceilings published for the VM SKU. The VM cached and uncached consumed % charts below measure activity against them. When the total provisioned disk limits above exceed these numbers, the disks are over-provisioned and the VM throttles first.\n\n| Scope | Max IOPS | Max throughput (MB/s) |\n|---|---|---|\n| VM uncached (remote data disks) | __VM_SKU_MAX_UNCACHED_IOPS__ | __VM_SKU_MAX_UNCACHED_MBPS__ |\n| VM cached (temp disk + host cache) | __VM_SKU_MAX_CACHED_IOPS__ | __VM_SKU_MAX_CACHED_MBPS__ |\n\nValues shown as N/A are not published for this VM series. Uncached limits apply to remotely attached data disks; cached limits add a separate buffer for reads served from the host cache and temp disk."
-      }
-    },
-    {
-      "type": 10,
-      "name": "VmIopsConsumed",
-      "content": {
-        "chartId": "1d6a1c94-2b1e-4d3a-9c8f-2a0b7e9d5c11",
-        "version": "MetricsItem/2.0",
-        "size": 0,
-        "chartType": 2,
-        "title": "VM IOPS consumed: cached vs uncached (%) \u2014 {VirtualMachines:label}",
-        "resourceIds": [
-          "{VirtualMachines}"
-        ],
-        "timeContext": {
-          "durationMs": 0
-        },
-        "timeContextFromParameter": "TimeRange",
-        "resourceType": "microsoft.compute/virtualmachines",
-        "resourceParameter": "VirtualMachines",
-        "metrics": [
-          {
-            "namespace": "microsoft.compute/virtualmachines",
-            "metric": "microsoft.compute/virtualmachines--VM Cached IOPS Consumed Percentage",
-            "aggregation": 4
-          },
-          {
-            "namespace": "microsoft.compute/virtualmachines",
-            "metric": "microsoft.compute/virtualmachines--VM Uncached IOPS Consumed Percentage",
-            "aggregation": 4
-          }
-        ]
-      }
-    },
-    {
-      "type": 10,
-      "name": "VmBandwidthConsumed",
-      "content": {
-        "chartId": "2e7b2da5-3c2f-4e4b-ad90-3b1c8f0e6d22",
-        "version": "MetricsItem/2.0",
-        "size": 0,
-        "chartType": 2,
-        "title": "VM bandwidth consumed: cached vs uncached (%) \u2014 {VirtualMachines:label}",
-        "resourceIds": [
-          "{VirtualMachines}"
-        ],
-        "timeContext": {
-          "durationMs": 0
-        },
-        "timeContextFromParameter": "TimeRange",
-        "resourceType": "microsoft.compute/virtualmachines",
-        "resourceParameter": "VirtualMachines",
-        "metrics": [
-          {
-            "namespace": "microsoft.compute/virtualmachines",
-            "metric": "microsoft.compute/virtualmachines--VM Cached Bandwidth Consumed Percentage",
-            "aggregation": 4
-          },
-          {
-            "namespace": "microsoft.compute/virtualmachines",
-            "metric": "microsoft.compute/virtualmachines--VM Uncached Bandwidth Consumed Percentage",
-            "aggregation": 4
-          }
-        ]
-      }
-    },
-    {
       "type": 3,
       "name": "TotalGuestIops",
       "content": {
@@ -578,95 +711,6 @@
           "{Workspace}"
         ],
         "visualization": "timechart"
-      }
-    },
-    {
-      "type": 1,
-      "name": "HotspotsHeading",
-      "content": {
-        "json": "## Throttling hotspots (fleet-wide)\n\nThese two views scan every selected VM at once to surface where throttling is happening. Series show the peak (Maximum) consumed percentage over the selected time range; a value at or above 95% means throttling at that scope.\n\n* **Disks at their disk limit** ranks individual data-disk LUNs against their own provisioned IOPS and bandwidth limits. A LUN near 100% means that single disk is the bottleneck.\n* **VMs at their VM SKU limit** ranks whole VMs against their cached and uncached SKU aggregate limits across all disks. A VM near 100% means the SKU aggregate is the bottleneck before any single disk."
-      }
-    },
-    {
-      "type": 10,
-      "name": "HotspotDisks",
-      "customWidth": "50%",
-      "content": {
-        "chartId": "3f8c4e16-5d3a-4f5c-be01-4c2d9f1e7e33",
-        "version": "MetricsItem/2.0",
-        "size": 0,
-        "chartType": 2,
-        "title": "Disks at their disk limit \u2014 peak consumed % by LUN",
-        "resourceIds": [
-          "{VirtualMachines}"
-        ],
-        "timeContext": {
-          "durationMs": 0
-        },
-        "timeContextFromParameter": "TimeRange",
-        "resourceType": "microsoft.compute/virtualmachines",
-        "resourceParameter": "VirtualMachines",
-        "metrics": [
-          {
-            "namespace": "microsoft.compute/virtualmachines",
-            "metric": "microsoft.compute/virtualmachines--Data Disk IOPS Consumed Percentage",
-            "aggregation": 2,
-            "splitBy": "LUN",
-            "splitBySortOrder": -1,
-            "splitByLimit": 50
-          },
-          {
-            "namespace": "microsoft.compute/virtualmachines",
-            "metric": "microsoft.compute/virtualmachines--Data Disk Bandwidth Consumed Percentage",
-            "aggregation": 2,
-            "splitBy": "LUN",
-            "splitBySortOrder": -1,
-            "splitByLimit": 50
-          }
-        ]
-      }
-    },
-    {
-      "type": 10,
-      "name": "HotspotVms",
-      "customWidth": "50%",
-      "content": {
-        "chartId": "4a9d5f27-6e4b-4061-cf12-5d3e0a2f8f44",
-        "version": "MetricsItem/2.0",
-        "size": 0,
-        "chartType": 2,
-        "title": "VMs at their VM SKU limit \u2014 peak consumed %",
-        "resourceIds": [
-          "{VirtualMachines}"
-        ],
-        "timeContext": {
-          "durationMs": 0
-        },
-        "timeContextFromParameter": "TimeRange",
-        "resourceType": "microsoft.compute/virtualmachines",
-        "resourceParameter": "VirtualMachines",
-        "metrics": [
-          {
-            "namespace": "microsoft.compute/virtualmachines",
-            "metric": "microsoft.compute/virtualmachines--VM Cached IOPS Consumed Percentage",
-            "aggregation": 2
-          },
-          {
-            "namespace": "microsoft.compute/virtualmachines",
-            "metric": "microsoft.compute/virtualmachines--VM Uncached IOPS Consumed Percentage",
-            "aggregation": 2
-          },
-          {
-            "namespace": "microsoft.compute/virtualmachines",
-            "metric": "microsoft.compute/virtualmachines--VM Cached Bandwidth Consumed Percentage",
-            "aggregation": 2
-          },
-          {
-            "namespace": "microsoft.compute/virtualmachines",
-            "metric": "microsoft.compute/virtualmachines--VM Uncached Bandwidth Consumed Percentage",
-            "aggregation": 2
-          }
-        ]
       }
     }
   ]

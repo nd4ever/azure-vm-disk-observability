@@ -51,7 +51,11 @@ param(
 
     [Parameter(Mandatory = $false)]
     [ValidateNotNullOrEmpty()]
-    [string]$DeploymentName = 'vm-disk-observability'
+    [string]$DeploymentName = 'vm-disk-observability',
+
+    [Parameter(Mandatory = $false)]
+    [ValidateNotNullOrEmpty()]
+    [string]$WorkbookDisplayName = 'VM Disk Observability'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -144,6 +148,7 @@ if ($MyInvocation.InvocationName -ne '.') {
             --parameters `
                 logAnalyticsWorkspaceResourceId=$LogAnalyticsWorkspaceResourceId `
                 nativeVmResourceId=$NativeVmResourceId `
+                workbookDisplayName=$WorkbookDisplayName `
                 vmSkuSize=$($VmSkuLimits.Size) `
                 vmSkuMaxUncachedIops=$($VmSkuLimits.MaxUncachedIops) `
                 vmSkuMaxUncachedMBps=$($VmSkuLimits.MaxUncachedMBps) `

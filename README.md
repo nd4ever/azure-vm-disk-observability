@@ -12,44 +12,75 @@ This project demonstrates per-disk observability in two Azure-native experiences
 * Azure Monitor Workbook in the Azure portal
 * Azure Managed Grafana
 
-Both experiences show a sortable per-disk table plus filtered time-series charts for
-total IOPS, total throughput, latency, and filesystem capacity. Hybrid views work for
-Azure Arc connected servers and native Azure VMs monitored by VM Insights.
+Both experiences lead with a **Throttling diagnosis** band that answers one question at a
+glance — *is throttling coming from a single disk's SKU limit or from the VM SKU
+aggregate?* — and then provide detailed trends, provisioned-limit references, and a guest
+disk inventory for context. Hybrid views work for Azure Arc connected servers and native
+Azure VMs monitored by VM Insights.
 
-Native Azure VM panels use platform metrics split by LUN for:
+## How to read the dashboards
 
-* Data Disk IOPS Consumed Percentage
-* Data Disk Bandwidth Consumed Percentage
-* Data Disk Latency
+Both experiences are organized top-to-bottom in the order you troubleshoot: **diagnosis
+first**, then detail, then reference, then guest inventory.
 
-The consumed-percentage panels compare total activity with provisioned disk limits,
-so operators do not need to combine read and write charts manually.
+### 1. Throttling diagnosis (start here)
 
-## Disk limit vs VM SKU limit
+Four indicators show the **peak consumed percentage** over the selected time range. In
+Grafana they are threshold-colored tiles; in the Workbook they are peak-aggregated charts.
+Read them against the **95%** line (Azure treats a metric at or above 95% for five
+consecutive minutes as throttling):
 
-Both experiences include a **Disk limit vs VM SKU limit** section that isolates whether
-throttling comes from a single disk or from the VM SKU aggregate:
+| Indicator | Source metric | Meaning when high |
+|-----------|---------------|-------------------|
+| **DISK — IOPS** | Data Disk IOPS Consumed Percentage (worst disk) | An individual data disk is hitting its own provisioned IOPS limit |
+| **DISK — Bandwidth** | Data Disk Bandwidth Consumed Percentage (worst disk) | An individual data disk is hitting its own provisioned bandwidth limit |
+| **VM SKU — IOPS** | VM Cached/Uncached IOPS Consumed Percentage | The VM is hitting its aggregate IOPS limit across all disks |
+| **VM SKU — Bandwidth** | VM Cached/Uncached Bandwidth Consumed Percentage | The VM is hitting its aggregate bandwidth limit across all disks |
 
-* Per-LUN *Data Disk IOPS/Bandwidth Consumed Percentage* shows when an individual disk
-  reaches its own provisioned limit.
-* *VM Cached/Uncached IOPS/Bandwidth Consumed Percentage* shows when the VM SKU aggregate
-  limit is reached, even while no single disk saturates.
+* Grafana tiles are **green below 80%, orange at 80%, red at 95%**.
+* **A DISK indicator is red/near 100%** &rarr; resize or upgrade that disk.
+* **A VM SKU indicator is red/near 100%** &rarr; resize the VM.
+* **Both high** &rarr; the disk is saturating and rolling up to the VM limit too.
 
-A metric at or above 95% for five consecutive minutes indicates throttling at that scope.
-A single LUN near 100% while the VM metrics stay low points to the disk; a VM cached or
-uncached metric near 100% while no single disk saturates points to the VM SKU.
+The DISK indicators roll up the worst data disk into one value; the trend charts below
+break it out per LUN. The VM SKU indicators show cached and uncached separately, since
+they are distinct VM ceilings.
+
+### 2. Detailed throttling trends
+
+Time-series charts to pinpoint *when* throttling happened and *which* LUN: Data Disk
+IOPS/Bandwidth consumed by LUN, VM cached vs uncached IOPS/Bandwidth, and Data Disk
+Latency. Series are split by Azure data-disk LUN, not by guest drive letter. Data Disk
+Latency is a preview metric that requires SCSI-attached disks and is unavailable for
+NVMe-attached disks.
+
+### 3. Provisioned limits (reference)
 
 A live Azure Resource Graph table reports each disk's maximum IOPS and MB/s from its disk
 SKU, plus the totals summed across all attached disks. When the summed disk limits exceed
-the VM SKU maximums, the disks are over-provisioned and the VM throttles first. Guest-side
-`vm-total-iops-timeseries.kql` and `vm-total-throughput-timeseries.kql` chart the aggregate
-demand across all logical disks per machine.
+the VM SKU maximums, the disks are over-provisioned and the VM throttles first.
 
 The absolute VM SKU maximums (max uncached and cached IOPS and MB/s) are resolved at
 deployment time from the Compute resource SKUs catalog and shown in a **VM SKU maximum
-limits** panel in both experiences. Capabilities a VM series does not publish appear as
-`N/A`. To read the same values manually, run
+limits** panel. Capabilities a VM series does not publish appear as `N/A`. To read the same
+values manually, run
 `az vm list-skus --location <region> --size <vmSize> --query "[].capabilities"`.
+
+### 4. Hybrid disk inventory (guest)
+
+A sortable per-disk table plus guest time-series for total IOPS, total throughput, latency,
+and filesystem capacity, sourced from VM Insights `InsightsMetrics` (`LogicalDisk`). These
+work for Azure Arc connected servers and native Azure VMs. Guest-side
+`vm-total-iops-timeseries.kql` and `vm-total-throughput-timeseries.kql` chart the aggregate
+demand across all logical disks per machine.
+
+### Selecting a VM
+
+* The **Grafana** dashboard uses cascading **Subscription &rarr; Resource group &rarr;
+  Native Azure VM** dropdowns. Its metric panels show one VM at a time (Azure Monitor
+  cannot aggregate metrics across subscriptions in a single query).
+* The **Workbook** VM picker is multi-select across all subscriptions, so its diagnosis and
+  trend charts fan out over every selected VM at once.
 
 ## Deployment model
 
@@ -139,9 +170,11 @@ multiple instances match `GrafanaName`, supply `GrafanaResourceId` to disambigua
 
 The workbook-only command uses `TenantId`, `SubscriptionId`, `ResourceGroupName`,
 `LogAnalyticsWorkspaceResourceId`, and `NativeVmResourceId`. Its optional
-`DeploymentName` defaults to `vm-disk-observability`. The standalone Grafana import
+`DeploymentName` defaults to `vm-disk-observability` and its optional
+`WorkbookDisplayName` defaults to `VM Disk Observability`; pass the same display name used
+at deployment to update an existing workbook in place. The standalone Grafana import
 uses `TenantId`, `GrafanaResourceId`, `WorkspaceResourceId`, and `NativeVmResourceId`;
-`DashboardFile` is optional.
+`DashboardFile` and `DashboardTitle` are optional.
 
 Unless role assignments are skipped, the command grants the new Grafana instance's
 managed identity Monitoring Reader over the workspace and native VM. It grants the
