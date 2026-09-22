@@ -12,14 +12,14 @@
     {
       "collapsed": false,
       "gridPos": {
-        "h": 1,
-        "w": 24,
         "x": 0,
-        "y": 0
+        "y": 0,
+        "w": 24,
+        "h": 1
       },
-      "id": 1,
+      "id": 22,
       "panels": [],
-      "title": "Hybrid inventory: Azure Arc and Azure VMs",
+      "title": "Throttling diagnosis — disk limit or VM SKU limit?",
       "type": "row"
     },
     {
@@ -27,391 +27,13 @@
         "type": "grafana-azure-monitor-datasource",
         "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
       },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "auto",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "inspect": false
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "UsedPercent"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "percent"
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": null
-                    },
-                    {
-                      "color": "orange",
-                      "value": 75
-                    },
-                    {
-                      "color": "red",
-                      "value": 90
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "mode": "gradient",
-                  "type": "color-background"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byRegexp",
-              "options": "/.*LatencyMs/"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "ms"
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 12,
-        "w": 24,
-        "x": 0,
-        "y": 1
-      },
-      "id": 2,
-      "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
-        },
-        "showHeader": true,
-        "sortBy": [
-          {
-            "desc": true,
-            "displayName": "PeakIOPS"
-          }
-        ]
-      },
-      "pluginVersion": "12.4.8",
-      "targets": [
-        {
-          "azureLogAnalytics": {
-            "query": "InsightsMetrics\n| where $__timeFilter(TimeGenerated)\n| where Namespace == 'LogicalDisk'\n| extend Mount = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| extend DiskSizeMB = todouble(todynamic(Tags)['vm.azm.ms/diskSizeMB'])\n| where isnotempty(Mount)\n| where Mount !startswith '/snap/' and Mount !startswith '/sys/'\n| where '${computer:raw}' == '*' or Computer in (${computer:singlequote})\n| where '${mount:raw}' == '*' or Mount in (${mount:singlequote})\n| summarize AvgIOPS = avgif(Val, Name == 'TransfersPerSecond'), PeakIOPS = maxif(Val, Name == 'TransfersPerSecond'), AvgThroughputMBps = avgif(Val, Name == 'BytesPerSecond') / 1024 / 1024, PeakThroughputMBps = maxif(Val, Name == 'BytesPerSecond') / 1024 / 1024, AvgLatencyMs = avgif(Val, Name == 'TransferLatencyMs'), PeakLatencyMs = maxif(Val, Name == 'TransferLatencyMs'), LowestFreePercent = minif(Val, Name == 'FreeSpacePercentage'), DiskSizeMB = max(DiskSizeMB), LastSeen = max(TimeGenerated) by Computer, Mount, _ResourceId\n| extend ResourceType = case(_ResourceId has '/microsoft.hybridcompute/machines/', 'Azure Arc', _ResourceId has '/microsoft.compute/virtualmachines/', 'Azure VM', 'Other')\n| extend UsedPercent = 100.0 - LowestFreePercent\n| project Computer, ResourceType, Mount, DiskSizeGB = round(DiskSizeMB / 1024, 1), UsedPercent = round(UsedPercent, 1), AvgIOPS = round(AvgIOPS, 1), PeakIOPS = round(PeakIOPS, 1), AvgThroughputMBps = round(AvgThroughputMBps, 2), PeakThroughputMBps = round(PeakThroughputMBps, 2), AvgLatencyMs = round(AvgLatencyMs, 2), PeakLatencyMs = round(PeakLatencyMs, 2), LastSeen\n| order by PeakIOPS desc",
-            "resource": "__WORKSPACE_RESOURCE_ID__",
-            "resultFormat": "table"
-          },
-          "datasource": {
-            "type": "grafana-azure-monitor-datasource",
-            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
-          },
-          "queryType": "Azure Log Analytics",
-          "refId": "A",
-          "subscription": "__WORKSPACE_SUBSCRIPTION_ID__",
-          "subscriptions": []
-        }
-      ],
-      "title": "Per-disk performance and capacity",
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "grafana-azure-monitor-datasource",
-        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
-      },
+      "description": "Peak Data Disk IOPS consumed % across all data disks. Red (≥95%) means an individual disk is hitting its own provisioned IOPS limit.",
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "palette-classic"
+            "mode": "thresholds"
           },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "IOPS",
-            "axisPlacement": "auto",
-            "drawStyle": "line",
-            "fillOpacity": 8,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 3,
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            }
-          },
-          "min": 0,
-          "unit": "iops"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 13
-      },
-      "id": 3,
-      "options": {
-        "legend": {
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "pluginVersion": "12.4.8",
-      "targets": [
-        {
-          "azureLogAnalytics": {
-            "query": "InsightsMetrics\n| where $__timeFilter(TimeGenerated)\n| where Namespace == 'LogicalDisk' and Name == 'TransfersPerSecond'\n| extend Mount = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| where isnotempty(Mount)\n| where Mount !startswith '/snap/' and Mount !startswith '/sys/'\n| where '${computer:raw}' == '*' or Computer in (${computer:singlequote})\n| where '${mount:raw}' == '*' or Mount in (${mount:singlequote})\n| summarize IOPS = avg(Val) by bin(TimeGenerated, 5m), Computer, Mount\n| extend Series = strcat(Computer, ' | ', Mount)\n| project TimeGenerated, Series, IOPS\n| order by TimeGenerated asc",
-            "resource": "__WORKSPACE_RESOURCE_ID__",
-            "resultFormat": "time_series"
-          },
-          "datasource": {
-            "type": "grafana-azure-monitor-datasource",
-            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
-          },
-          "queryType": "Azure Log Analytics",
-          "refId": "A",
-          "subscription": "__WORKSPACE_SUBSCRIPTION_ID__",
-          "subscriptions": []
-        }
-      ],
-      "title": "Total IOPS by logical disk",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "grafana-azure-monitor-datasource",
-        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "MiB/s",
-            "axisPlacement": "auto",
-            "drawStyle": "line",
-            "fillOpacity": 8,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 3,
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            }
-          },
-          "min": 0,
-          "unit": "MBs"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 13
-      },
-      "id": 4,
-      "options": {
-        "legend": {
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "pluginVersion": "12.4.8",
-      "targets": [
-        {
-          "azureLogAnalytics": {
-            "query": "InsightsMetrics\n| where $__timeFilter(TimeGenerated)\n| where Namespace == 'LogicalDisk' and Name == 'BytesPerSecond'\n| extend Mount = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| where isnotempty(Mount)\n| where Mount !startswith '/snap/' and Mount !startswith '/sys/'\n| where '${computer:raw}' == '*' or Computer in (${computer:singlequote})\n| where '${mount:raw}' == '*' or Mount in (${mount:singlequote})\n| summarize ThroughputMBps = avg(Val) / 1024 / 1024 by bin(TimeGenerated, 5m), Computer, Mount\n| extend Series = strcat(Computer, ' | ', Mount)\n| project TimeGenerated, Series, ThroughputMBps\n| order by TimeGenerated asc",
-            "resource": "__WORKSPACE_RESOURCE_ID__",
-            "resultFormat": "time_series"
-          },
-          "datasource": {
-            "type": "grafana-azure-monitor-datasource",
-            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
-          },
-          "queryType": "Azure Log Analytics",
-          "refId": "A",
-          "subscription": "__WORKSPACE_SUBSCRIPTION_ID__",
-          "subscriptions": []
-        }
-      ],
-      "title": "Total throughput by logical disk",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "grafana-azure-monitor-datasource",
-        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "ms",
-            "axisPlacement": "auto",
-            "drawStyle": "line",
-            "fillOpacity": 8,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 3,
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "line"
-            }
-          },
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 10
-              },
-              {
-                "color": "red",
-                "value": 20
-              }
-            ]
-          },
-          "unit": "ms"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 22
-      },
-      "id": 5,
-      "options": {
-        "legend": {
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "pluginVersion": "12.4.8",
-      "targets": [
-        {
-          "azureLogAnalytics": {
-            "query": "InsightsMetrics\n| where $__timeFilter(TimeGenerated)\n| where Namespace == 'LogicalDisk' and Name == 'TransferLatencyMs'\n| extend Mount = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| where isnotempty(Mount)\n| where Mount !startswith '/snap/' and Mount !startswith '/sys/'\n| where '${computer:raw}' == '*' or Computer in (${computer:singlequote})\n| where '${mount:raw}' == '*' or Mount in (${mount:singlequote})\n| summarize LatencyMs = avg(Val) by bin(TimeGenerated, 5m), Computer, Mount\n| extend Series = strcat(Computer, ' | ', Mount)\n| project TimeGenerated, Series, LatencyMs\n| order by TimeGenerated asc",
-            "resource": "__WORKSPACE_RESOURCE_ID__",
-            "resultFormat": "time_series"
-          },
-          "datasource": {
-            "type": "grafana-azure-monitor-datasource",
-            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
-          },
-          "queryType": "Azure Log Analytics",
-          "refId": "A",
-          "subscription": "__WORKSPACE_SUBSCRIPTION_ID__",
-          "subscriptions": []
-        }
-      ],
-      "title": "Average latency by logical disk",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "grafana-azure-monitor-datasource",
-        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "%",
-            "axisPlacement": "auto",
-            "drawStyle": "line",
-            "fillOpacity": 8,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 3,
-            "showPoints": "never",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "line"
-            }
-          },
+          "mappings": [],
           "max": 100,
           "min": 0,
           "thresholds": {
@@ -423,11 +45,11 @@
               },
               {
                 "color": "orange",
-                "value": 75
+                "value": 80
               },
               {
                 "color": "red",
-                "value": 90
+                "value": 95
               }
             ]
           },
@@ -436,59 +58,422 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 22
+        "x": 0,
+        "y": 1,
+        "w": 6,
+        "h": 5
       },
-      "id": 6,
+      "id": 23,
       "options": {
-        "legend": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
           "calcs": [
-            "mean",
             "max"
           ],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
+        "textMode": "value_and_name"
       },
       "pluginVersion": "12.4.8",
       "targets": [
         {
-          "azureLogAnalytics": {
-            "query": "InsightsMetrics\n| where $__timeFilter(TimeGenerated)\n| where Namespace == 'LogicalDisk' and Name == 'FreeSpacePercentage'\n| extend Mount = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| where isnotempty(Mount)\n| where Mount !startswith '/snap/' and Mount !startswith '/sys/'\n| where '${computer:raw}' == '*' or Computer in (${computer:singlequote})\n| where '${mount:raw}' == '*' or Mount in (${mount:singlequote})\n| summarize UsedPercent = 100.0 - avg(Val) by bin(TimeGenerated, 15m), Computer, Mount\n| extend Series = strcat(Computer, ' | ', Mount)\n| project TimeGenerated, Series, UsedPercent\n| order by TimeGenerated asc",
-            "resource": "__WORKSPACE_RESOURCE_ID__",
-            "resultFormat": "time_series"
+          "azureMonitor": {
+            "aggregation": "Maximum",
+            "alias": "Data disk",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "metricName": "Data Disk IOPS Consumed Percentage",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
           },
           "datasource": {
             "type": "grafana-azure-monitor-datasource",
             "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
           },
-          "queryType": "Azure Log Analytics",
+          "queryType": "Azure Monitor",
           "refId": "A",
-          "subscription": "__WORKSPACE_SUBSCRIPTION_ID__",
+          "subscription": "$subscription",
           "subscriptions": []
         }
       ],
-      "title": "Filesystem capacity used by logical disk",
-      "type": "timeseries"
+      "title": "DISK — IOPS",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "description": "Peak Data Disk bandwidth consumed % across all data disks. Red (≥95%) means an individual disk is hitting its own provisioned bandwidth limit.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 1,
+        "w": 6,
+        "h": 5
+      },
+      "id": 24,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureMonitor": {
+            "aggregation": "Maximum",
+            "alias": "Data disk",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "metricName": "Data Disk Bandwidth Consumed Percentage",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "A",
+          "subscription": "$subscription",
+          "subscriptions": []
+        }
+      ],
+      "title": "DISK — Bandwidth",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "description": "Peak VM IOPS consumed % against the VM SKU limit (cached and uncached). Red (≥95%) means the VM SKU IOPS ceiling is the bottleneck.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 6,
+        "h": 5
+      },
+      "id": 25,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureMonitor": {
+            "aggregation": "Maximum",
+            "alias": "Cached",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "metricName": "VM Cached IOPS Consumed Percentage",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "A",
+          "subscription": "$subscription",
+          "subscriptions": []
+        },
+        {
+          "azureMonitor": {
+            "aggregation": "Maximum",
+            "alias": "Uncached",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "metricName": "VM Uncached IOPS Consumed Percentage",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "B",
+          "subscription": "$subscription",
+          "subscriptions": []
+        }
+      ],
+      "title": "VM SKU — IOPS",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "description": "Peak VM bandwidth consumed % against the VM SKU limit (cached and uncached). Red (≥95%) means the VM SKU bandwidth ceiling is the bottleneck.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 95
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 1,
+        "w": 6,
+        "h": 5
+      },
+      "id": 26,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureMonitor": {
+            "aggregation": "Maximum",
+            "alias": "Cached",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "metricName": "VM Cached Bandwidth Consumed Percentage",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "A",
+          "subscription": "$subscription",
+          "subscriptions": []
+        },
+        {
+          "azureMonitor": {
+            "aggregation": "Maximum",
+            "alias": "Uncached",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "metricName": "VM Uncached Bandwidth Consumed Percentage",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "B",
+          "subscription": "$subscription",
+          "subscriptions": []
+        }
+      ],
+      "title": "VM SKU — Bandwidth",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 24,
+        "h": 3
+      },
+      "id": 27,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "Each tile shows the **peak consumed %** over the selected time range. **≥95% for 5+ minutes = throttling** at that scope.\n\n- **A DISK tile is red** → an individual data disk hit its own IOPS/bandwidth SKU limit → **resize or upgrade that disk**.\n- **A VM SKU tile is red** → the VM hit its aggregate IOPS/bandwidth limit across all disks → **resize the VM**.\n- **Both red** → the disk is saturating and rolling up to the VM limit too. Use the trend charts below to see when it happened and which LUN.",
+        "mode": "markdown"
+      },
+      "pluginVersion": "12.4.8",
+      "title": "How to read this",
+      "type": "text"
     },
     {
       "collapsed": false,
       "gridPos": {
-        "h": 1,
-        "w": 24,
         "x": 0,
-        "y": 31
+        "y": 9,
+        "w": 24,
+        "h": 1
       },
       "id": 7,
       "panels": [],
-      "title": "Native Azure VM platform metrics by LUN",
+      "title": "Detailed throttling trends (consumed %)",
       "type": "row"
     },
     {
@@ -509,10 +494,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 9,
-        "w": 8,
         "x": 0,
-        "y": 32
+        "y": 10,
+        "w": 12,
+        "h": 8
       },
       "id": 8,
       "options": {
@@ -591,10 +576,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 9,
-        "w": 8,
-        "x": 8,
-        "y": 32
+        "x": 12,
+        "y": 10,
+        "w": 12,
+        "h": 8
       },
       "id": 9,
       "options": {
@@ -656,217 +641,6 @@
       "type": "timeseries"
     },
     {
-      "description": "Preview metric. Available for SCSI-attached data disks, not NVMe-attached disks.",
-      "datasource": {
-        "type": "grafana-azure-monitor-datasource",
-        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "min": 0,
-          "unit": "ms"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 8,
-        "x": 16,
-        "y": 32
-      },
-      "id": 10,
-      "options": {
-        "legend": {
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "pluginVersion": "12.4.8",
-      "targets": [
-        {
-          "azureMonitor": {
-            "aggregation": "Average",
-            "alias": "LUN {{ dimensionvalue }}",
-            "allowedTimeGrainsMs": [],
-            "customNamespace": "Microsoft.Compute/virtualMachines",
-            "dimensionFilters": [
-              {
-                "dimension": "LUN",
-                "filters": [
-                  "*"
-                ],
-                "operator": "eq"
-              }
-            ],
-            "metricName": "Data Disk Latency",
-            "metricNamespace": "Microsoft.Compute/virtualMachines",
-            "resources": [
-              {
-                "metricNamespace": "Microsoft.Compute/virtualMachines",
-                "region": "",
-                "resourceGroup": "$resourceGroup",
-                "resourceName": "$nativeVm",
-                "subscription": "$subscription"
-              }
-            ],
-            "timeGrain": "auto"
-          },
-          "datasource": {
-            "type": "grafana-azure-monitor-datasource",
-            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
-          },
-          "queryType": "Azure Monitor",
-          "refId": "A",
-          "subscription": "$subscription",
-          "subscriptions": []
-        }
-      ],
-      "title": "Latency by LUN",
-      "type": "timeseries"
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 41
-      },
-      "id": 11,
-      "panels": [],
-      "title": "Disk limit vs VM SKU limit",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "grafana-azure-monitor-datasource",
-        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
-      },
-      "description": "Provisioned maximum IOPS and throughput for each disk attached to the native Azure VM, read live from the disk SKU with Azure Resource Graph.",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "auto",
-            "cellOptions": {
-              "type": "auto"
-            }
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 42
-      },
-      "id": 12,
-      "options": {
-        "showHeader": true
-      },
-      "pluginVersion": "12.4.8",
-      "targets": [
-        {
-          "azureResourceGraph": {
-            "query": "resources\n| where type =~ 'microsoft.compute/disks'\n| extend VM = tostring(split(managedBy, '/')[-1])\n| where VM =~ '$nativeVm'\n| project VM, DiskName = name, Sku = tostring(sku.name), SizeGiB = toint(properties.diskSizeGB), MaxIOPS = toint(properties.diskIOPSReadWrite), MaxThroughputMBps = toint(properties.diskMBpsReadWrite)\n| order by MaxIOPS desc",
-            "resultFormat": "table"
-          },
-          "datasource": {
-            "type": "grafana-azure-monitor-datasource",
-            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
-          },
-          "queryType": "Azure Resource Graph",
-          "refId": "A",
-          "subscriptions": [
-            "$subscription"
-          ]
-        }
-      ],
-      "title": "Provisioned per-disk limits (disk SKU)",
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "grafana-azure-monitor-datasource",
-        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
-      },
-      "description": "Sum of the provisioned disk IOPS and throughput across every disk attached to the native Azure VM. Compare these totals with the VM SKU maximums to spot over-provisioning.",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "auto",
-            "cellOptions": {
-              "type": "auto"
-            }
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 50
-      },
-      "id": 13,
-      "options": {
-        "showHeader": true
-      },
-      "pluginVersion": "12.4.8",
-      "targets": [
-        {
-          "azureResourceGraph": {
-            "query": "resources\n| where type =~ 'microsoft.compute/disks'\n| extend VM = tostring(split(managedBy, '/')[-1])\n| where VM =~ '$nativeVm'\n| summarize Disks = count(), TotalProvisionedIOPS = sum(toint(properties.diskIOPSReadWrite)), TotalProvisionedThroughputMBps = sum(toint(properties.diskMBpsReadWrite)) by VM\n| order by VM asc",
-            "resultFormat": "table"
-          },
-          "datasource": {
-            "type": "grafana-azure-monitor-datasource",
-            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
-          },
-          "queryType": "Azure Resource Graph",
-          "refId": "A",
-          "subscriptions": [
-            "$subscription"
-          ]
-        }
-      ],
-      "title": "Total provisioned limits across all disks",
-      "type": "table"
-    },
-    {
-      "gridPos": {
-        "h": 4,
-        "w": 24,
-        "x": 0,
-        "y": 58
-      },
-      "id": 18,
-      "options": {
-        "code": {
-          "language": "plaintext",
-          "showLineNumbers": false,
-          "showMiniMap": false
-        },
-        "content": "### VM SKU maximum limits \u2014 __VM_SKU_SIZE__\n\nAbsolute aggregate ceilings published for the deployment's reference VM SKU (re-deploy to change). The VM cached and uncached consumed % charts below measure activity against them. When the total provisioned disk limits above exceed these numbers, the disks are over-provisioned and the VM throttles first. `N/A` means the value is not published for this VM series.\n\n| Scope | Max IOPS | Max throughput (MB/s) |\n|---|---|---|\n| VM uncached (remote data disks) | __VM_SKU_MAX_UNCACHED_IOPS__ | __VM_SKU_MAX_UNCACHED_MBPS__ |\n| VM cached (temp disk + host cache) | __VM_SKU_MAX_CACHED_IOPS__ | __VM_SKU_MAX_CACHED_MBPS__ |",
-        "mode": "markdown"
-      },
-      "pluginVersion": "12.4.8",
-      "title": "VM SKU maximum limits",
-      "type": "text"
-    },
-    {
       "datasource": {
         "type": "grafana-azure-monitor-datasource",
         "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
@@ -884,10 +658,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 9,
-        "w": 12,
         "x": 0,
-        "y": 62
+        "y": 18,
+        "w": 12,
+        "h": 8
       },
       "id": 14,
       "options": {
@@ -985,10 +759,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 9,
-        "w": 12,
         "x": 12,
-        "y": 62
+        "y": 18,
+        "w": 12,
+        "h": 8
       },
       "id": 15,
       "options": {
@@ -1069,6 +843,686 @@
       "type": "timeseries"
     },
     {
+      "description": "Preview metric. Available for SCSI-attached data disks, not NVMe-attached disks.",
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "min": 0,
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 26,
+        "w": 24,
+        "h": 8
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureMonitor": {
+            "aggregation": "Average",
+            "alias": "LUN {{ dimensionvalue }}",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "dimensionFilters": [
+              {
+                "dimension": "LUN",
+                "filters": [
+                  "*"
+                ],
+                "operator": "eq"
+              }
+            ],
+            "metricName": "Data Disk Latency",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "A",
+          "subscription": "$subscription",
+          "subscriptions": []
+        }
+      ],
+      "title": "Latency by LUN",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 34,
+        "w": 24,
+        "h": 1
+      },
+      "id": 11,
+      "panels": [],
+      "title": "Disk limit vs VM SKU limit",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "description": "Provisioned maximum IOPS and throughput for each disk attached to the native Azure VM, read live from the disk SKU with Azure Resource Graph.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 35,
+        "w": 24,
+        "h": 8
+      },
+      "id": 12,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureResourceGraph": {
+            "query": "resources\n| where type =~ 'microsoft.compute/disks'\n| extend VM = tostring(split(managedBy, '/')[-1])\n| where VM =~ '$nativeVm'\n| project VM, DiskName = name, Sku = tostring(sku.name), SizeGiB = toint(properties.diskSizeGB), MaxIOPS = toint(properties.diskIOPSReadWrite), MaxThroughputMBps = toint(properties.diskMBpsReadWrite)\n| order by MaxIOPS desc",
+            "resultFormat": "table"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Resource Graph",
+          "refId": "A",
+          "subscriptions": [
+            "$subscription"
+          ]
+        }
+      ],
+      "title": "Provisioned per-disk limits (disk SKU)",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "description": "Sum of the provisioned disk IOPS and throughput across every disk attached to the native Azure VM. Compare these totals with the VM SKU maximums to spot over-provisioning.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 43,
+        "w": 24,
+        "h": 8
+      },
+      "id": 13,
+      "options": {
+        "showHeader": true
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureResourceGraph": {
+            "query": "resources\n| where type =~ 'microsoft.compute/disks'\n| extend VM = tostring(split(managedBy, '/')[-1])\n| where VM =~ '$nativeVm'\n| summarize Disks = count(), TotalProvisionedIOPS = sum(toint(properties.diskIOPSReadWrite)), TotalProvisionedThroughputMBps = sum(toint(properties.diskMBpsReadWrite)) by VM\n| order by VM asc",
+            "resultFormat": "table"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Resource Graph",
+          "refId": "A",
+          "subscriptions": [
+            "$subscription"
+          ]
+        }
+      ],
+      "title": "Total provisioned limits across all disks",
+      "type": "table"
+    },
+    {
+      "gridPos": {
+        "x": 0,
+        "y": 51,
+        "w": 24,
+        "h": 4
+      },
+      "id": 18,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "### VM SKU maximum limits — __VM_SKU_SIZE__\n\nAbsolute aggregate ceilings published for the deployment's reference VM SKU (re-deploy to change). The VM cached and uncached consumed % charts below measure activity against them. When the total provisioned disk limits above exceed these numbers, the disks are over-provisioned and the VM throttles first. `N/A` means the value is not published for this VM series.\n\n| Scope | Max IOPS | Max throughput (MB/s) |\n|---|---|---|\n| VM uncached (remote data disks) | __VM_SKU_MAX_UNCACHED_IOPS__ | __VM_SKU_MAX_UNCACHED_MBPS__ |\n| VM cached (temp disk + host cache) | __VM_SKU_MAX_CACHED_IOPS__ | __VM_SKU_MAX_CACHED_MBPS__ |",
+        "mode": "markdown"
+      },
+      "pluginVersion": "12.4.8",
+      "title": "VM SKU maximum limits",
+      "type": "text"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 55,
+        "w": 24,
+        "h": 1
+      },
+      "id": 1,
+      "panels": [],
+      "title": "Hybrid inventory: Azure Arc and Azure VMs",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "UsedPercent"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 75
+                    },
+                    {
+                      "color": "red",
+                      "value": 90
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "gradient",
+                  "type": "color-background"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/.*LatencyMs/"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 56,
+        "w": 24,
+        "h": 12
+      },
+      "id": 2,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "PeakIOPS"
+          }
+        ]
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "query": "InsightsMetrics\n| where $__timeFilter(TimeGenerated)\n| where Namespace == 'LogicalDisk'\n| extend Mount = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| extend DiskSizeMB = todouble(todynamic(Tags)['vm.azm.ms/diskSizeMB'])\n| where isnotempty(Mount)\n| where Mount !startswith '/snap/' and Mount !startswith '/sys/'\n| where '${computer:raw}' == '*' or Computer in (${computer:singlequote})\n| where '${mount:raw}' == '*' or Mount in (${mount:singlequote})\n| summarize AvgIOPS = avgif(Val, Name == 'TransfersPerSecond'), PeakIOPS = maxif(Val, Name == 'TransfersPerSecond'), AvgThroughputMBps = avgif(Val, Name == 'BytesPerSecond') / 1024 / 1024, PeakThroughputMBps = maxif(Val, Name == 'BytesPerSecond') / 1024 / 1024, AvgLatencyMs = avgif(Val, Name == 'TransferLatencyMs'), PeakLatencyMs = maxif(Val, Name == 'TransferLatencyMs'), LowestFreePercent = minif(Val, Name == 'FreeSpacePercentage'), DiskSizeMB = max(DiskSizeMB), LastSeen = max(TimeGenerated) by Computer, Mount, _ResourceId\n| extend ResourceType = case(_ResourceId has '/microsoft.hybridcompute/machines/', 'Azure Arc', _ResourceId has '/microsoft.compute/virtualmachines/', 'Azure VM', 'Other')\n| extend UsedPercent = 100.0 - LowestFreePercent\n| project Computer, ResourceType, Mount, DiskSizeGB = round(DiskSizeMB / 1024, 1), UsedPercent = round(UsedPercent, 1), AvgIOPS = round(AvgIOPS, 1), PeakIOPS = round(PeakIOPS, 1), AvgThroughputMBps = round(AvgThroughputMBps, 2), PeakThroughputMBps = round(PeakThroughputMBps, 2), AvgLatencyMs = round(AvgLatencyMs, 2), PeakLatencyMs = round(PeakLatencyMs, 2), LastSeen\n| order by PeakIOPS desc",
+            "resource": "__WORKSPACE_RESOURCE_ID__",
+            "resultFormat": "table"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "__WORKSPACE_SUBSCRIPTION_ID__",
+          "subscriptions": []
+        }
+      ],
+      "title": "Per-disk performance and capacity",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "IOPS",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "min": 0,
+          "unit": "iops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 68,
+        "w": 12,
+        "h": 9
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "query": "InsightsMetrics\n| where $__timeFilter(TimeGenerated)\n| where Namespace == 'LogicalDisk' and Name == 'TransfersPerSecond'\n| extend Mount = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| where isnotempty(Mount)\n| where Mount !startswith '/snap/' and Mount !startswith '/sys/'\n| where '${computer:raw}' == '*' or Computer in (${computer:singlequote})\n| where '${mount:raw}' == '*' or Mount in (${mount:singlequote})\n| summarize IOPS = avg(Val) by bin(TimeGenerated, 5m), Computer, Mount\n| extend Series = strcat(Computer, ' | ', Mount)\n| project TimeGenerated, Series, IOPS\n| order by TimeGenerated asc",
+            "resource": "__WORKSPACE_RESOURCE_ID__",
+            "resultFormat": "time_series"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "__WORKSPACE_SUBSCRIPTION_ID__",
+          "subscriptions": []
+        }
+      ],
+      "title": "Total IOPS by logical disk",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "MiB/s",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            }
+          },
+          "min": 0,
+          "unit": "MBs"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 68,
+        "w": 12,
+        "h": 9
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "query": "InsightsMetrics\n| where $__timeFilter(TimeGenerated)\n| where Namespace == 'LogicalDisk' and Name == 'BytesPerSecond'\n| extend Mount = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| where isnotempty(Mount)\n| where Mount !startswith '/snap/' and Mount !startswith '/sys/'\n| where '${computer:raw}' == '*' or Computer in (${computer:singlequote})\n| where '${mount:raw}' == '*' or Mount in (${mount:singlequote})\n| summarize ThroughputMBps = avg(Val) / 1024 / 1024 by bin(TimeGenerated, 5m), Computer, Mount\n| extend Series = strcat(Computer, ' | ', Mount)\n| project TimeGenerated, Series, ThroughputMBps\n| order by TimeGenerated asc",
+            "resource": "__WORKSPACE_RESOURCE_ID__",
+            "resultFormat": "time_series"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "__WORKSPACE_SUBSCRIPTION_ID__",
+          "subscriptions": []
+        }
+      ],
+      "title": "Total throughput by logical disk",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "ms",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 10
+              },
+              {
+                "color": "red",
+                "value": 20
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 77,
+        "w": 12,
+        "h": 9
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "query": "InsightsMetrics\n| where $__timeFilter(TimeGenerated)\n| where Namespace == 'LogicalDisk' and Name == 'TransferLatencyMs'\n| extend Mount = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| where isnotempty(Mount)\n| where Mount !startswith '/snap/' and Mount !startswith '/sys/'\n| where '${computer:raw}' == '*' or Computer in (${computer:singlequote})\n| where '${mount:raw}' == '*' or Mount in (${mount:singlequote})\n| summarize LatencyMs = avg(Val) by bin(TimeGenerated, 5m), Computer, Mount\n| extend Series = strcat(Computer, ' | ', Mount)\n| project TimeGenerated, Series, LatencyMs\n| order by TimeGenerated asc",
+            "resource": "__WORKSPACE_RESOURCE_ID__",
+            "resultFormat": "time_series"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "__WORKSPACE_SUBSCRIPTION_ID__",
+          "subscriptions": []
+        }
+      ],
+      "title": "Average latency by logical disk",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "%",
+            "axisPlacement": "auto",
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 75
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 77,
+        "w": 12,
+        "h": 9
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "query": "InsightsMetrics\n| where $__timeFilter(TimeGenerated)\n| where Namespace == 'LogicalDisk' and Name == 'FreeSpacePercentage'\n| extend Mount = tostring(todynamic(Tags)['vm.azm.ms/mountId'])\n| where isnotempty(Mount)\n| where Mount !startswith '/snap/' and Mount !startswith '/sys/'\n| where '${computer:raw}' == '*' or Computer in (${computer:singlequote})\n| where '${mount:raw}' == '*' or Mount in (${mount:singlequote})\n| summarize UsedPercent = 100.0 - avg(Val) by bin(TimeGenerated, 15m), Computer, Mount\n| extend Series = strcat(Computer, ' | ', Mount)\n| project TimeGenerated, Series, UsedPercent\n| order by TimeGenerated asc",
+            "resource": "__WORKSPACE_RESOURCE_ID__",
+            "resultFormat": "time_series"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "__WORKSPACE_SUBSCRIPTION_ID__",
+          "subscriptions": []
+        }
+      ],
+      "title": "Filesystem capacity used by logical disk",
+      "type": "timeseries"
+    },
+    {
       "datasource": {
         "type": "grafana-azure-monitor-datasource",
         "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
@@ -1085,10 +1539,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 9,
-        "w": 12,
         "x": 0,
-        "y": 71
+        "y": 86,
+        "w": 12,
+        "h": 9
       },
       "id": 16,
       "options": {
@@ -1144,10 +1598,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 9,
-        "w": 12,
         "x": 12,
-        "y": 71
+        "y": 86,
+        "w": 12,
+        "h": 9
       },
       "id": 17,
       "options": {
@@ -1185,329 +1639,6 @@
       ],
       "title": "Total guest throughput across all disks by machine",
       "type": "timeseries"
-    },
-    {
-      "collapsed": false,
-      "gridPos": {
-        "h": 1,
-        "w": 24,
-        "x": 0,
-        "y": 80
-      },
-      "id": 19,
-      "panels": [],
-      "title": "Throttling hotspots (selected VM)",
-      "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "grafana-azure-monitor-datasource",
-        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
-      },
-      "description": "Peak Data Disk consumed percentage per LUN over the window. Any tile at or above 95% means that individual disk is hitting its own provisioned IOPS or bandwidth limit.",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "max": 100,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 80
-              },
-              {
-                "color": "red",
-                "value": 95
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 81
-      },
-      "id": 20,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "max"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "value_and_name"
-      },
-      "pluginVersion": "12.4.8",
-      "targets": [
-        {
-          "azureMonitor": {
-            "aggregation": "Maximum",
-            "alias": "Disk IOPS LUN {{ dimensionvalue }}",
-            "allowedTimeGrainsMs": [],
-            "customNamespace": "Microsoft.Compute/virtualMachines",
-            "dimensionFilters": [
-              {
-                "dimension": "LUN",
-                "filters": [
-                  "*"
-                ],
-                "operator": "eq"
-              }
-            ],
-            "metricName": "Data Disk IOPS Consumed Percentage",
-            "metricNamespace": "Microsoft.Compute/virtualMachines",
-            "resources": [
-              {
-                "metricNamespace": "Microsoft.Compute/virtualMachines",
-                "region": "",
-                "resourceGroup": "$resourceGroup",
-                "resourceName": "$nativeVm",
-                "subscription": "$subscription"
-              }
-            ],
-            "timeGrain": "auto"
-          },
-          "datasource": {
-            "type": "grafana-azure-monitor-datasource",
-            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
-          },
-          "queryType": "Azure Monitor",
-          "refId": "A",
-          "subscription": "$subscription",
-          "subscriptions": []
-        },
-        {
-          "azureMonitor": {
-            "aggregation": "Maximum",
-            "alias": "Disk BW LUN {{ dimensionvalue }}",
-            "allowedTimeGrainsMs": [],
-            "customNamespace": "Microsoft.Compute/virtualMachines",
-            "dimensionFilters": [
-              {
-                "dimension": "LUN",
-                "filters": [
-                  "*"
-                ],
-                "operator": "eq"
-              }
-            ],
-            "metricName": "Data Disk Bandwidth Consumed Percentage",
-            "metricNamespace": "Microsoft.Compute/virtualMachines",
-            "resources": [
-              {
-                "metricNamespace": "Microsoft.Compute/virtualMachines",
-                "region": "",
-                "resourceGroup": "$resourceGroup",
-                "resourceName": "$nativeVm",
-                "subscription": "$subscription"
-              }
-            ],
-            "timeGrain": "auto"
-          },
-          "datasource": {
-            "type": "grafana-azure-monitor-datasource",
-            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
-          },
-          "queryType": "Azure Monitor",
-          "refId": "B",
-          "subscription": "$subscription",
-          "subscriptions": []
-        }
-      ],
-      "title": "Disks at their disk limit \u2014 peak consumed % by LUN",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "grafana-azure-monitor-datasource",
-        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
-      },
-      "description": "Peak VM SKU consumed percentage across all disks over the window. Any tile at or above 95% means the VM SKU aggregate limit is throttling before any single disk.",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "max": 100,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 80
-              },
-              {
-                "color": "red",
-                "value": 95
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 81
-      },
-      "id": 21,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "max"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "value_and_name"
-      },
-      "pluginVersion": "12.4.8",
-      "targets": [
-        {
-          "azureMonitor": {
-            "aggregation": "Maximum",
-            "alias": "Cached IOPS",
-            "allowedTimeGrainsMs": [],
-            "customNamespace": "Microsoft.Compute/virtualMachines",
-            "metricName": "VM Cached IOPS Consumed Percentage",
-            "metricNamespace": "Microsoft.Compute/virtualMachines",
-            "resources": [
-              {
-                "metricNamespace": "Microsoft.Compute/virtualMachines",
-                "region": "",
-                "resourceGroup": "$resourceGroup",
-                "resourceName": "$nativeVm",
-                "subscription": "$subscription"
-              }
-            ],
-            "timeGrain": "auto"
-          },
-          "datasource": {
-            "type": "grafana-azure-monitor-datasource",
-            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
-          },
-          "queryType": "Azure Monitor",
-          "refId": "A",
-          "subscription": "$subscription",
-          "subscriptions": []
-        },
-        {
-          "azureMonitor": {
-            "aggregation": "Maximum",
-            "alias": "Uncached IOPS",
-            "allowedTimeGrainsMs": [],
-            "customNamespace": "Microsoft.Compute/virtualMachines",
-            "metricName": "VM Uncached IOPS Consumed Percentage",
-            "metricNamespace": "Microsoft.Compute/virtualMachines",
-            "resources": [
-              {
-                "metricNamespace": "Microsoft.Compute/virtualMachines",
-                "region": "",
-                "resourceGroup": "$resourceGroup",
-                "resourceName": "$nativeVm",
-                "subscription": "$subscription"
-              }
-            ],
-            "timeGrain": "auto"
-          },
-          "datasource": {
-            "type": "grafana-azure-monitor-datasource",
-            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
-          },
-          "queryType": "Azure Monitor",
-          "refId": "B",
-          "subscription": "$subscription",
-          "subscriptions": []
-        },
-        {
-          "azureMonitor": {
-            "aggregation": "Maximum",
-            "alias": "Cached bandwidth",
-            "allowedTimeGrainsMs": [],
-            "customNamespace": "Microsoft.Compute/virtualMachines",
-            "metricName": "VM Cached Bandwidth Consumed Percentage",
-            "metricNamespace": "Microsoft.Compute/virtualMachines",
-            "resources": [
-              {
-                "metricNamespace": "Microsoft.Compute/virtualMachines",
-                "region": "",
-                "resourceGroup": "$resourceGroup",
-                "resourceName": "$nativeVm",
-                "subscription": "$subscription"
-              }
-            ],
-            "timeGrain": "auto"
-          },
-          "datasource": {
-            "type": "grafana-azure-monitor-datasource",
-            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
-          },
-          "queryType": "Azure Monitor",
-          "refId": "C",
-          "subscription": "$subscription",
-          "subscriptions": []
-        },
-        {
-          "azureMonitor": {
-            "aggregation": "Maximum",
-            "alias": "Uncached bandwidth",
-            "allowedTimeGrainsMs": [],
-            "customNamespace": "Microsoft.Compute/virtualMachines",
-            "metricName": "VM Uncached Bandwidth Consumed Percentage",
-            "metricNamespace": "Microsoft.Compute/virtualMachines",
-            "resources": [
-              {
-                "metricNamespace": "Microsoft.Compute/virtualMachines",
-                "region": "",
-                "resourceGroup": "$resourceGroup",
-                "resourceName": "$nativeVm",
-                "subscription": "$subscription"
-              }
-            ],
-            "timeGrain": "auto"
-          },
-          "datasource": {
-            "type": "grafana-azure-monitor-datasource",
-            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
-          },
-          "queryType": "Azure Monitor",
-          "refId": "D",
-          "subscription": "$subscription",
-          "subscriptions": []
-        }
-      ],
-      "title": "VM SKU aggregate \u2014 peak consumed %",
-      "type": "stat"
     }
   ],
   "refresh": "1m",
@@ -1664,6 +1795,3 @@
   "version": 1,
   "weekStart": ""
 }
-
-
-
