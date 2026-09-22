@@ -1533,7 +1533,7 @@
         "options": [],
         "query": {
           "azureResourceGraph": {
-            "query": "resources | where type =~ 'microsoft.compute/virtualmachines' | project __text = strcat(name, ' (', resourceGroup, ')'), __value = name | order by __text asc",
+            "query": "resources | where type =~ 'microsoft.compute/virtualmachines' | distinct name | order by name asc",
             "resultFormat": "table"
           },
           "queryType": "Azure Resource Graph",
