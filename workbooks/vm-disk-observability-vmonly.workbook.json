@@ -96,8 +96,7 @@
               "additionalResourceOptions": []
             },
             "queryType": 1,
-            "resourceType": "microsoft.resourcegraph/resources",
-            "value": "__NATIVE_VM_RESOURCE_ID__"
+            "resourceType": "microsoft.resourcegraph/resources"
           }
         ]
       }

@@ -82,7 +82,7 @@
             "id": "b59e63c9-2645-45fc-9199-2cc175fbd35c",
             "version": "KqlParameterItem/1.0",
             "name": "Computer",
-            "label": "Machines",
+            "label": "Guest machine (VM Insights)",
             "type": 2,
             "isRequired": true,
             "multiSelect": true,
@@ -109,7 +109,7 @@
             "id": "1ce4aff5-4bbb-4c8e-bf55-d908207de653",
             "version": "KqlParameterItem/1.0",
             "name": "Mount",
-            "label": "Mounts",
+            "label": "Guest mount",
             "type": 2,
             "isRequired": true,
             "multiSelect": true,
@@ -165,8 +165,7 @@
               "additionalResourceOptions": []
             },
             "queryType": 1,
-            "resourceType": "microsoft.resourcegraph/resources",
-            "value": "__NATIVE_VM_RESOURCE_ID__"
+            "resourceType": "microsoft.resourcegraph/resources"
           }
         ]
       }
