@@ -319,7 +319,6 @@ if ($MyInvocation.InvocationName -ne '.') {
     try {
         $script:AzureCli = (Get-Command az -ErrorAction Stop).Source
         $ProjectRoot = Split-Path -Path $PSScriptRoot -Parent
-        . (Join-Path $PSScriptRoot 'Get-VmSkuLimits.ps1')
         $TemplateFile = Join-Path $ProjectRoot 'infra/main.bicep'
         $ImportScript = Join-Path $PSScriptRoot 'Import-GrafanaDashboard.ps1'
 
@@ -485,8 +484,6 @@ if ($MyInvocation.InvocationName -ne '.') {
         }
         }
 
-        $VmSkuLimits = Get-VmSkuLimits -NativeVmResourceId $NativeVmResourceId -AzureCli $script:AzureCli
-
         $ShouldRunBicep = $DeployVMInsights -or $DeployFree -or $ShouldDeployGrafana
         $Deployment = $null
         if ($ShouldRunBicep) {
@@ -495,11 +492,6 @@ if ($MyInvocation.InvocationName -ne '.') {
                 "logAnalyticsWorkspaceResourceId=$LogAnalyticsWorkspaceResourceId",
                 "nativeVmResourceId=$NativeVmResourceId",
                 "workbookDisplayName=$WorkbookDisplayName",
-                "vmSkuSize=$($VmSkuLimits.Size)",
-                "vmSkuMaxUncachedIops=$($VmSkuLimits.MaxUncachedIops)",
-                "vmSkuMaxUncachedMBps=$($VmSkuLimits.MaxUncachedMBps)",
-                "vmSkuMaxCachedIops=$($VmSkuLimits.MaxCachedIops)",
-                "vmSkuMaxCachedMBps=$($VmSkuLimits.MaxCachedMBps)",
                 "shouldDeployWorkbook=$($DeployVMInsights.ToString().ToLowerInvariant())",
                 "shouldDeployAzureVmOnlyWorkbook=$($DeployFree.ToString().ToLowerInvariant())",
                 "shouldDeployGrafana=$($ShouldDeployGrafana.ToString().ToLowerInvariant())"

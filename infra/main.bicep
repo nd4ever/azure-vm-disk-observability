@@ -15,21 +15,6 @@ param nativeVmResourceId string
 @description('The display name of the Azure Monitor Workbook.')
 param workbookDisplayName string = 'VM Disk Observability'
 
-@description('The native Azure VM SKU size shown in the VM SKU limits panel.')
-param vmSkuSize string = 'N/A'
-
-@description('The maximum uncached IOPS published for the native Azure VM SKU.')
-param vmSkuMaxUncachedIops string = 'N/A'
-
-@description('The maximum uncached throughput in MB/s published for the native Azure VM SKU.')
-param vmSkuMaxUncachedMBps string = 'N/A'
-
-@description('The maximum cached IOPS published for the native Azure VM SKU.')
-param vmSkuMaxCachedIops string = 'N/A'
-
-@description('The maximum cached throughput in MB/s published for the native Azure VM SKU.')
-param vmSkuMaxCachedMBps string = 'N/A'
-
 @description('The deterministic resource name of the Azure Monitor Workbook.')
 param workbookName string = guid(resourceGroup().id, workbookDisplayName)
 
@@ -62,20 +47,10 @@ param grafanaZoneRedundancy string = 'Disabled'
 
 var workbookTemplate = loadTextContent('../workbooks/vm-disk-observability.workbook.json')
 var workbookWithWorkspace = replace(workbookTemplate, '__WORKSPACE_RESOURCE_ID__', logAnalyticsWorkspaceResourceId)
-var workbookWithVm = replace(workbookWithWorkspace, '__NATIVE_VM_RESOURCE_ID__', nativeVmResourceId)
-var workbookWithSize = replace(workbookWithVm, '__VM_SKU_SIZE__', vmSkuSize)
-var workbookWithUncachedIops = replace(workbookWithSize, '__VM_SKU_MAX_UNCACHED_IOPS__', vmSkuMaxUncachedIops)
-var workbookWithUncachedMBps = replace(workbookWithUncachedIops, '__VM_SKU_MAX_UNCACHED_MBPS__', vmSkuMaxUncachedMBps)
-var workbookWithCachedIops = replace(workbookWithUncachedMBps, '__VM_SKU_MAX_CACHED_IOPS__', vmSkuMaxCachedIops)
-var workbookData = replace(workbookWithCachedIops, '__VM_SKU_MAX_CACHED_MBPS__', vmSkuMaxCachedMBps)
+var workbookData = replace(workbookWithWorkspace, '__NATIVE_VM_RESOURCE_ID__', nativeVmResourceId)
 
 var vmOnlyTemplate = loadTextContent('../workbooks/vm-disk-observability-vmonly.workbook.json')
-var vmOnlyWithVm = replace(vmOnlyTemplate, '__NATIVE_VM_RESOURCE_ID__', nativeVmResourceId)
-var vmOnlyWithSize = replace(vmOnlyWithVm, '__VM_SKU_SIZE__', vmSkuSize)
-var vmOnlyWithUncachedIops = replace(vmOnlyWithSize, '__VM_SKU_MAX_UNCACHED_IOPS__', vmSkuMaxUncachedIops)
-var vmOnlyWithUncachedMBps = replace(vmOnlyWithUncachedIops, '__VM_SKU_MAX_UNCACHED_MBPS__', vmSkuMaxUncachedMBps)
-var vmOnlyWithCachedIops = replace(vmOnlyWithUncachedMBps, '__VM_SKU_MAX_CACHED_IOPS__', vmSkuMaxCachedIops)
-var vmOnlyData = replace(vmOnlyWithCachedIops, '__VM_SKU_MAX_CACHED_MBPS__', vmSkuMaxCachedMBps)
+var vmOnlyData = replace(vmOnlyTemplate, '__NATIVE_VM_RESOURCE_ID__', nativeVmResourceId)
 
 resource grafana 'Microsoft.Dashboard/grafana@2024-10-01' = if (shouldDeployGrafana) {
   name: grafanaName

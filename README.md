@@ -78,13 +78,14 @@ NVMe-attached disks.
 ### 3. Provisioned limits (reference)
 
 A live Azure Resource Graph table reports each disk's maximum IOPS and MB/s from its disk
-SKU, plus the totals summed across all attached disks. When the summed disk limits exceed
-the VM SKU maximums, the disks are over-provisioned and the VM throttles first.
+SKU, plus the totals summed across all attached disks, scoped to the selected VM. When the
+summed disk limits exceed the VM SKU maximums, the disks are over-provisioned and the VM
+throttles first.
 
-The absolute VM SKU maximums (max uncached and cached IOPS and MB/s) are resolved at
-deployment time from the Compute resource SKUs catalog and shown in a **VM SKU maximum
-limits** panel. Capabilities a VM series does not publish appear as `N/A`. To read the same
-values manually, run
+The **VM SKU maximum limits** panel resolves the selected VM's SKU size dynamically as you
+switch VMs in the picker, and directs you to the VM cached and uncached consumed % charts,
+which measure the selected VM's live usage against its own SKU ceilings. To read the exact
+published numbers for a SKU manually, run
 `az vm list-skus --location <region> --size <vmSize> --query "[].capabilities"`.
 
 Next to the provisioned limits, **Data disk IOPS/throughput used by LUN (peak)** charts show
@@ -197,6 +198,14 @@ Manager IDs.
 | `GrafanaAdminPrincipalType`     | `User` or `ServicePrincipal`                                                           | Required when `GrafanaAdminPrincipalId` is supplied                         |
 | `SkipRoleAssignments`           | PowerShell switch                                                                     | Optional; skips Grafana and Monitoring Reader role assignments              |
 | `SkipGrafanaImport`             | PowerShell switch                                                                     | Optional; deploys Azure resources without importing the Grafana dashboard   |
+| `Grafana`                       | PowerShell switch                                                                     | Optional; artifact selector for the Grafana dashboard                       |
+| `VMInsights`                    | PowerShell switch                                                                     | Optional; artifact selector for the VM Insights workbook                    |
+| `Free`                          | PowerShell switch                                                                     | Optional; artifact selector for the free, Azure VM-only workbook            |
+
+Use `-Grafana`, `-VMInsights`, and `-Free` to choose which artifacts deploy. When none are
+supplied, all three deploy. Supply any combination to deploy only those, for example
+`./scripts/Deploy-Solution.ps1 -Free` or `-Grafana -VMInsights`. `-Free` on its own does not
+require a Log Analytics workspace, since the free workbook uses only platform metrics.
 
 If neither Grafana parameter is supplied, the script displays instances in the
 deployment subscription and prompts you to select one or create a new instance. If

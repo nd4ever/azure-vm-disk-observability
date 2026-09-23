@@ -96,7 +96,6 @@ function ConvertFrom-AzureResourceId {
 if ($MyInvocation.InvocationName -ne '.') {
     try {
         $AzureCli = (Get-Command az -ErrorAction Stop).Source
-        . (Join-Path $PSScriptRoot 'Get-VmSkuLimits.ps1')
         & $AzureCli extension show --name amg --output none 2>$null
         if ($LASTEXITCODE -ne 0) {
             throw "The Azure CLI amg extension is required. Install it with 'az extension add --name amg'."
@@ -149,8 +148,6 @@ if ($MyInvocation.InvocationName -ne '.') {
         if ($LASTEXITCODE -ne 0) {
             throw "Unable to resolve native Azure VM '$NativeVmResourceId'."
         }
-
-        $VmSkuLimits = Get-VmSkuLimits -NativeVmResourceId $NativeVmResourceId -AzureCli $AzureCli
 
         $EnabledSubscriptionIds = @(
             & $AzureCli account list --query "[?state=='Enabled'].id" --output tsv |
@@ -205,11 +202,6 @@ if ($MyInvocation.InvocationName -ne '.') {
             '__AZURE_VM_NAME__' = $NativeVmParts.Name
             '__AZURE_VM_REGION__' = $NativeVmResource.location
             '__NATIVE_VM_RESOURCE_ID__' = $NativeVmResourceId
-            '__VM_SKU_SIZE__' = $VmSkuLimits.Size
-            '__VM_SKU_MAX_UNCACHED_IOPS__' = $VmSkuLimits.MaxUncachedIops
-            '__VM_SKU_MAX_UNCACHED_MBPS__' = $VmSkuLimits.MaxUncachedMBps
-            '__VM_SKU_MAX_CACHED_IOPS__' = $VmSkuLimits.MaxCachedIops
-            '__VM_SKU_MAX_CACHED_MBPS__' = $VmSkuLimits.MaxCachedMBps
             '__DASHBOARD_TITLE__' = $DashboardTitle
             '__DASHBOARD_UID__' = $DashboardUid
         }
