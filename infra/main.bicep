@@ -33,6 +33,9 @@ param vmSkuMaxCachedMBps string = 'N/A'
 @description('The deterministic resource name of the Azure Monitor Workbook.')
 param workbookName string = guid(resourceGroup().id, workbookDisplayName)
 
+@description('Whether to deploy the VM Insights Azure Monitor Workbook (platform metrics plus in-guest inventory).')
+param shouldDeployWorkbook bool = true
+
 @description('The display name of the free, Azure VM-only Azure Monitor Workbook.')
 param azureVmOnlyWorkbookDisplayName string = 'Azure VM Disk SKU Limits (free)'
 
@@ -94,7 +97,7 @@ resource grafana 'Microsoft.Dashboard/grafana@2024-10-01' = if (shouldDeployGraf
   }
 }
 
-resource workbook 'Microsoft.Insights/workbooks@2023-06-01' = {
+resource workbook 'Microsoft.Insights/workbooks@2023-06-01' = if (shouldDeployWorkbook) {
   name: workbookName
   location: location
   kind: 'shared'
@@ -121,7 +124,7 @@ resource workbookVmOnly 'Microsoft.Insights/workbooks@2023-06-01' = if (shouldDe
 }
 
 @description('The resource ID of the deployed Azure Monitor Workbook.')
-output workbookResourceId string = workbook.id
+output workbookResourceId string? = workbook.?id
 
 @description('The resource ID of the free, Azure VM-only workbook when deployed.')
 output azureVmOnlyWorkbookResourceId string? = workbookVmOnly.?id

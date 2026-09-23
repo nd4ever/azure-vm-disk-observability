@@ -35,6 +35,20 @@
     Skips Grafana Admin and Monitoring Reader role assignments.
 .PARAMETER SkipGrafanaImport
     Deploys Azure resources without importing the Grafana dashboard.
+.PARAMETER Grafana
+    Deploys and imports the Grafana dashboard. Acts as an artifact selector.
+.PARAMETER VMInsights
+    Deploys the VM Insights Azure Monitor Workbook. Acts as an artifact selector.
+.PARAMETER Free
+    Deploys the free, Azure VM-only Azure Monitor Workbook. Acts as an artifact selector.
+
+    When none of -Grafana, -VMInsights, or -Free are supplied, all three are deployed.
+    Supply any combination to deploy only those artifacts. -Free alone does not require a
+    Log Analytics workspace.
+.EXAMPLE
+    ./scripts/Deploy-Solution.ps1 -Free
+.EXAMPLE
+    ./scripts/Deploy-Solution.ps1 -Grafana -VMInsights
 .EXAMPLE
     ./scripts/Deploy-Solution.ps1
 .EXAMPLE
@@ -84,7 +98,16 @@ param(
     [switch]$SkipRoleAssignments,
 
     [Parameter(Mandatory = $false)]
-    [switch]$SkipGrafanaImport
+    [switch]$SkipGrafanaImport,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$Grafana,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$VMInsights,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$Free
 )
 
 $ErrorActionPreference = 'Stop'
@@ -334,23 +357,36 @@ if ($MyInvocation.InvocationName -ne '.') {
                 -FailureMessage "Unable to create resource group '$ResourceGroupName'."
         }
 
-        $LogAnalyticsWorkspaceResourceId = Read-DeploymentValue `
-            -Value $LogAnalyticsWorkspaceResourceId `
-            -Prompt 'Log Analytics workspace resource ID'
+        $SelectedArtifacts = $Grafana.IsPresent -or $VMInsights.IsPresent -or $Free.IsPresent
+        $DeployGrafana = if ($SelectedArtifacts) { $Grafana.IsPresent } else { $true }
+        $DeployVMInsights = if ($SelectedArtifacts) { $VMInsights.IsPresent } else { $true }
+        $DeployFree = if ($SelectedArtifacts) { $Free.IsPresent } else { $true }
+        $NeedWorkspace = $DeployVMInsights -or $DeployGrafana
+
+        if ($NeedWorkspace) {
+            $LogAnalyticsWorkspaceResourceId = Read-DeploymentValue `
+                -Value $LogAnalyticsWorkspaceResourceId `
+                -Prompt 'Log Analytics workspace resource ID'
+        }
         $NativeVmResourceId = Read-DeploymentValue `
             -Value $NativeVmResourceId `
             -Prompt 'Native Azure VM resource ID'
 
-        $WorkspaceParts = ConvertFrom-AzureResourceId -ResourceId $LogAnalyticsWorkspaceResourceId
         $NativeVmParts = ConvertFrom-AzureResourceId -ResourceId $NativeVmResourceId
-        if ($WorkspaceParts.ProviderNamespace -ne 'Microsoft.OperationalInsights' -or $WorkspaceParts.ResourceType -ne 'workspaces') {
-            throw "The supplied workspace ID does not identify a Log Analytics workspace."
-        }
         if ($NativeVmParts.ProviderNamespace -ne 'Microsoft.Compute' -or $NativeVmParts.ResourceType -ne 'virtualMachines') {
             throw "The supplied VM ID does not identify an Azure virtual machine."
         }
 
-        foreach ($ReferencedSubscriptionId in @($WorkspaceParts.SubscriptionId, $NativeVmParts.SubscriptionId) | Select-Object -Unique) {
+        $ReferencedSubscriptionIds = @($NativeVmParts.SubscriptionId)
+        if (-not [string]::IsNullOrWhiteSpace($LogAnalyticsWorkspaceResourceId)) {
+            $WorkspaceParts = ConvertFrom-AzureResourceId -ResourceId $LogAnalyticsWorkspaceResourceId
+            if ($WorkspaceParts.ProviderNamespace -ne 'Microsoft.OperationalInsights' -or $WorkspaceParts.ResourceType -ne 'workspaces') {
+                throw "The supplied workspace ID does not identify a Log Analytics workspace."
+            }
+            $ReferencedSubscriptionIds += $WorkspaceParts.SubscriptionId
+        }
+
+        foreach ($ReferencedSubscriptionId in $ReferencedSubscriptionIds | Select-Object -Unique) {
             $ReferencedAccount = Invoke-AzureCliJson `
                 -Arguments @('account', 'show', '--subscription', $ReferencedSubscriptionId, '--output', 'json') `
                 -FailureMessage "Unable to access referenced subscription '$ReferencedSubscriptionId'."
@@ -359,13 +395,19 @@ if ($MyInvocation.InvocationName -ne '.') {
             }
         }
 
-        Invoke-AzureCliJson `
-            -Arguments @('resource', 'show', '--ids', $LogAnalyticsWorkspaceResourceId, '--output', 'json') `
-            -FailureMessage "Unable to resolve Log Analytics workspace '$LogAnalyticsWorkspaceResourceId'." | Out-Null
+        if (-not [string]::IsNullOrWhiteSpace($LogAnalyticsWorkspaceResourceId)) {
+            Invoke-AzureCliJson `
+                -Arguments @('resource', 'show', '--ids', $LogAnalyticsWorkspaceResourceId, '--output', 'json') `
+                -FailureMessage "Unable to resolve Log Analytics workspace '$LogAnalyticsWorkspaceResourceId'." | Out-Null
+        }
         Invoke-AzureCliJson `
             -Arguments @('resource', 'show', '--ids', $NativeVmResourceId, '--output', 'json') `
             -FailureMessage "Unable to resolve native Azure VM '$NativeVmResourceId'." | Out-Null
 
+        $ShouldDeployGrafana = $false
+        $ShouldGrantExplicitGrafanaAdmin = $false
+        $GrafanaResourceId = $null
+        if ($DeployGrafana) {
         $GrafanaResource = $null
         $ShouldGrantExplicitGrafanaAdmin = -not [string]::IsNullOrWhiteSpace($GrafanaAdminPrincipalId)
         if (-not $ShouldGrantExplicitGrafanaAdmin -and -not [string]::IsNullOrWhiteSpace($GrafanaAdminPrincipalType)) {
@@ -441,17 +483,14 @@ if ($MyInvocation.InvocationName -ne '.') {
                 }
             }
         }
+        }
 
         $VmSkuLimits = Get-VmSkuLimits -NativeVmResourceId $NativeVmResourceId -AzureCli $script:AzureCli
 
-        $Deployment = Invoke-AzureCliJson `
-            -Arguments @(
-                'deployment', 'group', 'create',
-                '--subscription', $SubscriptionId,
-                '--resource-group', $ResourceGroupName,
-                '--name', 'vm-disk-observability',
-                '--template-file', $TemplateFile,
-                '--parameters',
+        $ShouldRunBicep = $DeployVMInsights -or $DeployFree -or $ShouldDeployGrafana
+        $Deployment = $null
+        if ($ShouldRunBicep) {
+            $DeploymentParameters = @(
                 "location=$Location",
                 "logAnalyticsWorkspaceResourceId=$LogAnalyticsWorkspaceResourceId",
                 "nativeVmResourceId=$NativeVmResourceId",
@@ -461,23 +500,37 @@ if ($MyInvocation.InvocationName -ne '.') {
                 "vmSkuMaxUncachedMBps=$($VmSkuLimits.MaxUncachedMBps)",
                 "vmSkuMaxCachedIops=$($VmSkuLimits.MaxCachedIops)",
                 "vmSkuMaxCachedMBps=$($VmSkuLimits.MaxCachedMBps)",
-                "shouldDeployGrafana=$($ShouldDeployGrafana.ToString().ToLowerInvariant())",
-                "grafanaName=$GrafanaName",
-                '--output', 'json'
-            ) `
-            -FailureMessage 'The Azure resource deployment failed.'
+                "shouldDeployWorkbook=$($DeployVMInsights.ToString().ToLowerInvariant())",
+                "shouldDeployAzureVmOnlyWorkbook=$($DeployFree.ToString().ToLowerInvariant())",
+                "shouldDeployGrafana=$($ShouldDeployGrafana.ToString().ToLowerInvariant())"
+            )
+            if ($ShouldDeployGrafana) {
+                $DeploymentParameters += "grafanaName=$GrafanaName"
+            }
 
-        if ($ShouldDeployGrafana) {
+            $Deployment = Invoke-AzureCliJson `
+                -Arguments (@(
+                    'deployment', 'group', 'create',
+                    '--subscription', $SubscriptionId,
+                    '--resource-group', $ResourceGroupName,
+                    '--name', 'vm-disk-observability',
+                    '--template-file', $TemplateFile,
+                    '--parameters'
+                ) + $DeploymentParameters + @('--output', 'json')) `
+                -FailureMessage 'The Azure resource deployment failed.'
+        }
+
+        if ($DeployGrafana -and $ShouldDeployGrafana) {
             $GrafanaResourceId = $Deployment.properties.outputs.grafanaResourceId.value
             $GrafanaResource = Invoke-AzureCliJson `
                 -Arguments @('resource', 'show', '--ids', $GrafanaResourceId, '--api-version', '2024-10-01', '--output', 'json') `
                 -FailureMessage "Unable to resolve newly created Azure Managed Grafana '$GrafanaName'."
         }
-        else {
+        elseif ($DeployGrafana) {
             $GrafanaResourceId = $GrafanaResource.id
         }
 
-        if (-not $SkipRoleAssignments) {
+        if ($DeployGrafana -and -not $SkipRoleAssignments) {
             $ImportPrincipalId = $null
             $ImportPrincipalType = $null
             if (-not $SkipGrafanaImport -or ($ShouldDeployGrafana -and -not $ShouldGrantExplicitGrafanaAdmin)) {
@@ -533,7 +586,7 @@ if ($MyInvocation.InvocationName -ne '.') {
                 -Scope $NativeVmResourceId
         }
 
-        if (-not $SkipGrafanaImport) {
+        if ($DeployGrafana -and -not $SkipGrafanaImport) {
             & $ImportScript `
                 -TenantId $TenantId `
                 -GrafanaResourceId $GrafanaResourceId `
@@ -545,8 +598,15 @@ if ($MyInvocation.InvocationName -ne '.') {
             }
         }
 
-        Write-Information "Workbook deployed: $($Deployment.properties.outputs.workbookResourceId.value)" -InformationAction Continue
-        Write-Information "Azure Managed Grafana: $GrafanaResourceId" -InformationAction Continue
+        if ($DeployVMInsights -and $Deployment) {
+            Write-Information "VM Insights workbook deployed: $($Deployment.properties.outputs.workbookResourceId.value)" -InformationAction Continue
+        }
+        if ($DeployFree -and $Deployment) {
+            Write-Information "Free (Azure VM-only) workbook deployed: $($Deployment.properties.outputs.azureVmOnlyWorkbookResourceId.value)" -InformationAction Continue
+        }
+        if ($DeployGrafana) {
+            Write-Information "Azure Managed Grafana: $GrafanaResourceId" -InformationAction Continue
+        }
     }
     catch {
         Write-Error -ErrorAction Continue "Solution deployment failed: $($_.Exception.Message)"
