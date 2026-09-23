@@ -84,6 +84,7 @@ if ($MyInvocation.InvocationName -ne '.') {
                 Where-Object {
                     -not [string]::IsNullOrWhiteSpace($_.query) -and
                     $_.name -ne 'VirtualMachines' -and
+                    $_.name -ne 'VmSkuSize' -and
                     ($_.queryType -ne 0 -or $_.resourceType -ne 'microsoft.operationalinsights/workspaces')
                 }
         )

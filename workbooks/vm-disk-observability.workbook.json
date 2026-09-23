@@ -166,6 +166,20 @@
             },
             "queryType": 1,
             "resourceType": "microsoft.resourcegraph/resources"
+          },
+          {
+            "id": "a7c1e2b3-1111-4222-8333-444455556666",
+            "version": "KqlParameterItem/1.0",
+            "name": "VmSkuSize",
+            "type": 1,
+            "isRequired": false,
+            "query": "Resources | where id =~ '{VirtualMachines}' | project value = tostring(properties.hardwareProfile.vmSize)",
+            "crossComponentResources": [
+              "value::all"
+            ],
+            "isHiddenWhenLocked": true,
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources"
           }
         ]
       }
@@ -482,7 +496,7 @@
       "name": "DiskProvisionedLimits",
       "content": {
         "version": "KqlItem/1.0",
-        "query": "where type =~ 'microsoft.compute/disks' and isnotempty(managedBy) and managedBy contains 'virtualMachines'\n| extend VM = tostring(split(managedBy, '/')[-1])\n| project VM, DiskName = name, Sku = tostring(sku.name), SizeGiB = toint(properties.diskSizeGB), MaxIOPS = toint(properties.diskIOPSReadWrite), MaxThroughputMBps = toint(properties.diskMBpsReadWrite)\n| order by VM asc, MaxIOPS desc",
+        "query": "where type =~ 'microsoft.compute/disks' and isnotempty(managedBy) and managedBy =~ '{VirtualMachines}'\n| extend VM = tostring(split(managedBy, '/')[-1])\n| project VM, DiskName = name, Sku = tostring(sku.name), SizeGiB = toint(properties.diskSizeGB), MaxIOPS = toint(properties.diskIOPSReadWrite), MaxThroughputMBps = toint(properties.diskMBpsReadWrite)\n| order by VM asc, MaxIOPS desc",
         "size": 0,
         "title": "Provisioned per-disk limits (disk SKU)",
         "queryType": 1,
@@ -516,7 +530,7 @@
       "name": "VmTotalProvisioned",
       "content": {
         "version": "KqlItem/1.0",
-        "query": "where type =~ 'microsoft.compute/disks' and isnotempty(managedBy) and managedBy contains 'virtualMachines'\n| extend VM = tostring(split(managedBy, '/')[-1])\n| summarize Disks = count(), TotalProvisionedIOPS = sum(toint(properties.diskIOPSReadWrite)), TotalProvisionedThroughputMBps = sum(toint(properties.diskMBpsReadWrite)) by VM\n| order by VM asc",
+        "query": "where type =~ 'microsoft.compute/disks' and isnotempty(managedBy) and managedBy =~ '{VirtualMachines}'\n| extend VM = tostring(split(managedBy, '/')[-1])\n| summarize Disks = count(), TotalProvisionedIOPS = sum(toint(properties.diskIOPSReadWrite)), TotalProvisionedThroughputMBps = sum(toint(properties.diskMBpsReadWrite)) by VM\n| order by VM asc",
         "size": 0,
         "title": "Total provisioned limits across all disks",
         "queryType": 1,
@@ -623,7 +637,7 @@
       "type": 1,
       "name": "VmSkuLimits",
       "content": {
-        "json": "### VM SKU maximum limits \u2014 __VM_SKU_SIZE__\n\nThese are the absolute aggregate ceilings published for the VM SKU. The VM cached and uncached consumed % charts below measure activity against them. When the total provisioned disk limits above exceed these numbers, the disks are over-provisioned and the VM throttles first.\n\n| Scope | Max IOPS | Max throughput (MB/s) |\n|---|---|---|\n| VM uncached (remote data disks) | __VM_SKU_MAX_UNCACHED_IOPS__ | __VM_SKU_MAX_UNCACHED_MBPS__ |\n| VM cached (temp disk + host cache) | __VM_SKU_MAX_CACHED_IOPS__ | __VM_SKU_MAX_CACHED_MBPS__ |\n\nValues shown as N/A are not published for this VM series. Uncached limits apply to remotely attached data disks; cached limits add a separate buffer for reads served from the host cache and temp disk."
+        "json": "### VM SKU maximum limits \u2014 {VmSkuSize}\n\nThe absolute IOPS and throughput ceilings are set by this VM SKU (**{VmSkuSize}**) and change when you select a different VM. Rather than fixed numbers, use the **VM cached and uncached consumed %** charts below: they measure the selected VM\u2019s live usage against its own SKU ceilings, so a series near 100% means the VM SKU aggregate limit is the bottleneck (resize the VM). The per-disk provisioned limits above show each attached disk\u2019s own ceiling.\n\n_Need the exact published numbers? Look up **{VmSkuSize}** in the Azure VM sizes documentation._"
       }
     },
     {
