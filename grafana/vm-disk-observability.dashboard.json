@@ -519,7 +519,7 @@
       "targets": [
         {
           "azureMonitor": {
-            "aggregation": "Average",
+            "aggregation": "Maximum",
             "alias": "LUN {{ dimensionvalue }}",
             "allowedTimeGrainsMs": [],
             "customNamespace": "Microsoft.Compute/virtualMachines",
@@ -601,7 +601,7 @@
       "targets": [
         {
           "azureMonitor": {
-            "aggregation": "Average",
+            "aggregation": "Maximum",
             "alias": "LUN {{ dimensionvalue }}",
             "allowedTimeGrainsMs": [],
             "customNamespace": "Microsoft.Compute/virtualMachines",
@@ -683,7 +683,7 @@
       "targets": [
         {
           "azureMonitor": {
-            "aggregation": "Average",
+            "aggregation": "Maximum",
             "alias": "Cached IOPS consumed %",
             "allowedTimeGrainsMs": [],
             "customNamespace": "Microsoft.Compute/virtualMachines",
@@ -711,7 +711,7 @@
         },
         {
           "azureMonitor": {
-            "aggregation": "Average",
+            "aggregation": "Maximum",
             "alias": "Uncached IOPS consumed %",
             "allowedTimeGrainsMs": [],
             "customNamespace": "Microsoft.Compute/virtualMachines",
@@ -784,7 +784,7 @@
       "targets": [
         {
           "azureMonitor": {
-            "aggregation": "Average",
+            "aggregation": "Maximum",
             "alias": "Cached bandwidth consumed %",
             "allowedTimeGrainsMs": [],
             "customNamespace": "Microsoft.Compute/virtualMachines",
@@ -812,7 +812,7 @@
         },
         {
           "azureMonitor": {
-            "aggregation": "Average",
+            "aggregation": "Maximum",
             "alias": "Uncached bandwidth consumed %",
             "allowedTimeGrainsMs": [],
             "customNamespace": "Microsoft.Compute/virtualMachines",
