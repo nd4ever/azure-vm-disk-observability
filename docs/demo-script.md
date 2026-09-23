@@ -23,8 +23,9 @@ against both ceilings so the answer is obvious.
 ## Before the meeting (setup checklist)
 
 * [ ] Open all three artifacts in separate browser tabs (links in the [Appendix](#appendix-links-and-references)).
-* [ ] Pick a VM you know was busy. **LocalBox-Client** is the reference demo VM: it runs
-  nested Hyper-V, so a boot storm drove its data disks to 100% while the VM SKU stayed low -
+* [ ] Pick a VM you know was busy. A good reference VM is one that runs nested
+  virtualization (for example, a boot storm can drive its data disks to 100% while the VM SKU
+  stays low) -
   the perfect "single disk is the bottleneck" example.
 * [ ] Set the time range to **Last 2 days** so the throttling event is visible.
 * [ ] Do a hard refresh (Ctrl+F5) on each tab so nothing is stale.
@@ -50,7 +51,7 @@ the diagnosis, with optional in-guest inventory from VM Insights at the bottom.
 
 1. **Selectors (top).** "Grafana uses native cascading pickers: choose a **Subscription**,
    then **Resource group**, then the **Native Azure VM**. It works across every subscription
-   you can see." Select **LocalBox-Client**.
+   you can see." Select your reference VM.
 2. **Throttling diagnosis band (start here).** Point at the four colored tiles.
    * "DISK - IOPS and DISK - Bandwidth are both **red at 100%**. An individual data disk is
      pinned at its own SKU limit."
@@ -86,7 +87,7 @@ diagnosis as Grafana, plus a rich in-guest inventory from VM Insights (Log Analy
 ### Walkthrough
 
 1. "This is the exact same diagnosis, but it lives **in the Azure portal** - no extra tooling
-   to stand up." Open the workbook and select **LocalBox-Client** in the **Native Azure VM**
+   to stand up." Open the workbook and select your reference VM in the **Native Azure VM**
    picker (it queries across all your subscriptions).
 2. **Throttling diagnosis charts.** "Same story: DISK IOPS/Bandwidth ride up to **100%** (one
    line per LUN, so you see which disk), while VM SKU stays low. These use Maximum, so they
@@ -117,7 +118,7 @@ metrics**. No VM Insights, no agent, no Log Analytics, no per-GB cost.
 ### Walkthrough
 
 1. "Same throttling diagnosis - DISK vs VM SKU - with **zero additional cost and nothing to
-   install**." Select **LocalBox-Client**.
+   install**." Select your reference VM.
 2. **Throttling diagnosis + trends + provisioned limits + used + read/write.** "Everything you
    need to answer *disk limit or VM limit* is here, straight from the platform metrics every
    Azure VM already emits for free."
@@ -177,13 +178,14 @@ default and turn on **VM Insights** selectively for the VMs they are actively tr
 
 ## Appendix: links and references
 
-Replace the placeholders with your environment's values before the meeting.
+Fill in your environment's values before the meeting (keep real URLs and resource names out
+of source control).
 
-* **Grafana dashboard:** `https://AzureGrafana-cef8bdgdbfhsg0a7.cus.grafana.azure.com/d/sku-limit-disk-capacity-dashboard`
+* **Grafana dashboard:** `https://<your-grafana-instance>.grafana.azure.com/d/sku-limit-disk-capacity-dashboard`
 * **Workbook (VM Insights):** Azure portal &rarr; Monitor &rarr; Workbooks &rarr;
-  **SKU Limit Disk Capacity Dashboard** (resource group `Automation-RG`).
+  **SKU Limit Disk Capacity Dashboard** (in your monitoring resource group).
 * **Workbook (free, Azure VM only):** Azure portal &rarr; Monitor &rarr; Workbooks &rarr;
-  **Azure VM Disk SKU Limits (free)** (resource group `Automation-RG`).
-* **Reference demo VM:** `LocalBox-Client` (resource group `Arcbox`) - 9 data disks, disk
-  IOPS/bandwidth peak at 100% while the VM SKU stays under ~35%.
+  **Azure VM Disk SKU Limits (free)** (in your monitoring resource group).
+* **Reference demo VM:** any VM you know was busy - ideally one with several data disks whose
+  disk IOPS/bandwidth peaked near 100% while the VM SKU stayed low.
 * **How to read the data:** see the project [README](../README.md).
