@@ -61,9 +61,10 @@ consecutive minutes as throttling):
 * **A VM SKU indicator is red/near 100%** &rarr; resize the VM.
 * **Both high** &rarr; the disk is saturating and rolling up to the VM limit too.
 
-The DISK indicators roll up the worst data disk into one value; the trend charts below
-break it out per LUN. The VM SKU indicators show cached and uncached separately, since
-they are distinct VM ceilings. **The tiles show the peak over the selected time range —
+In Grafana the DISK indicator rolls up the worst data disk into a single threshold-colored
+value; in the Workbook the DISK charts plot **one line per LUN**, so you can already see which
+disk is saturating. The VM SKU indicators show cached and uncached separately, since
+they are distinct VM ceilings. **These indicators show the peak over the selected time range —
 the worst moment, not the current state; narrow the time range to see current activity.**
 
 ### 2. Detailed throttling trends

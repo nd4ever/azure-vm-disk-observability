@@ -111,7 +111,7 @@ if ($MyInvocation.InvocationName -ne '.') {
             $WorkbookMetricItems |
                 Where-Object {
                     $_.content.version -ne 'MetricsItem/2.0' -or
-                    $_.content.chartType -ne 2 -or
+                    ($_.content.chartType -ne 2 -and $_.content.chartType -ne -1) -or
                     $_.content.resourceParameter -ne 'VirtualMachines' -or
                     $_.content.resourceIds -notcontains '{VirtualMachines}' -or
                     $_.content.timeContext.durationMs -ne 0
