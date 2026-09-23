@@ -636,7 +636,7 @@
     {
       "type": 10,
       "name": "ReadThroughput",
-      "customWidth": "50%",
+      "customWidth": "25%",
       "content": {
         "chartId": "7c01-0000-4001-9001-1b0000000001",
         "version": "MetricsItem/2.0",
@@ -667,7 +667,7 @@
     {
       "type": 10,
       "name": "WriteThroughput",
-      "customWidth": "50%",
+      "customWidth": "25%",
       "content": {
         "chartId": "7c02-0000-4002-9002-1b0000000002",
         "version": "MetricsItem/2.0",
@@ -698,7 +698,7 @@
     {
       "type": 10,
       "name": "ReadIops",
-      "customWidth": "50%",
+      "customWidth": "25%",
       "content": {
         "chartId": "7c03-0000-4003-9003-1b0000000003",
         "version": "MetricsItem/2.0",
@@ -729,7 +729,7 @@
     {
       "type": 10,
       "name": "WriteIops",
-      "customWidth": "50%",
+      "customWidth": "25%",
       "content": {
         "chartId": "7c04-0000-4004-9004-1b0000000004",
         "version": "MetricsItem/2.0",
