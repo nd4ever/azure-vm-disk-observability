@@ -110,8 +110,10 @@ demand across all logical disks per machine.
 * The **Grafana** dashboard uses cascading **Subscription &rarr; Resource group &rarr;
   Native Azure VM** dropdowns. Its metric panels show one VM at a time (Azure Monitor
   cannot aggregate metrics across subscriptions in a single query).
-* The **Workbook** VM picker is multi-select across all subscriptions, so its diagnosis and
-  trend charts fan out over every selected VM at once.
+* The **Workbook** VM picker is **single-select** across all subscriptions. The metric
+  charts show one VM at a time because a workbook averages a metric across multiple
+  selected resources, which would dilute the per-VM peaks. The provisioned-limit tables
+  still list every attached VM disk, so the fleet reference is preserved.
 
 ## Deployment model
 

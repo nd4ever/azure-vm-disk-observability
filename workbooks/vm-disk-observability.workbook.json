@@ -153,7 +153,7 @@
             "label": "Native Azure VM",
             "type": 5,
             "isRequired": true,
-            "multiSelect": true,
+            "multiSelect": false,
             "query": "where type =~ 'microsoft.compute/virtualmachines'\n| order by name asc\n| project value = id, label = name, selected = id =~ '__NATIVE_VM_RESOURCE_ID__'",
             "crossComponentResources": [
               "value::all"
@@ -162,15 +162,11 @@
               "resourceTypeFilter": {
                 "microsoft.compute/virtualmachines": true
               },
-              "additionalResourceOptions": [
-                "value::all"
-              ]
+              "additionalResourceOptions": []
             },
             "queryType": 1,
             "resourceType": "microsoft.resourcegraph/resources",
-            "value": [
-              "value::all"
-            ]
+            "value": "__NATIVE_VM_RESOURCE_ID__"
           }
         ]
       }
@@ -179,7 +175,7 @@
       "type": 1,
       "name": "DiagnosisHeading",
       "content": {
-        "json": "## Throttling diagnosis \u2014 disk limit or VM SKU limit?\n\nThese four charts show the peak consumed percentage over the selected time range for every selected VM. A series at or above 95% for five consecutive minutes indicates throttling at that scope.\n\n* **A DISK chart reaches ~100%** \u2192 an individual data disk hit its own provisioned IOPS or bandwidth limit \u2192 resize or upgrade that disk.\n* **A VM SKU chart reaches ~100%** \u2192 the VM hit its aggregate IOPS or bandwidth limit across all disks \u2192 resize the VM.\n* **Both high** \u2192 the disk is saturating and rolling up to the VM limit too.\n\nUse the detailed trend charts below to see when it happened and which LUN.\n\n_These charts show the peak over the selected time range \u2014 the worst moment, not the current state. Narrow the time range to see current activity._"
+        "json": "## Throttling diagnosis \u2014 disk limit or VM SKU limit?\n\nThese four charts show the peak consumed percentage over the selected time range for the selected VM. A series at or above 95% for five consecutive minutes indicates throttling at that scope.\n\n* **A DISK chart reaches ~100%** \u2192 an individual data disk hit its own provisioned IOPS or bandwidth limit \u2192 resize or upgrade that disk.\n* **A VM SKU chart reaches ~100%** \u2192 the VM hit its aggregate IOPS or bandwidth limit across all disks \u2192 resize the VM.\n* **Both high** \u2192 the disk is saturating and rolling up to the VM limit too.\n\nUse the detailed trend charts below to see when it happened and which LUN.\n\n_These charts show the peak over the selected time range \u2014 the worst moment, not the current state. Narrow the time range to see current activity._"
       }
     },
     {
