@@ -1571,7 +1571,7 @@
         "x": 0,
         "y": 68,
         "w": 24,
-        "h": 6
+        "h": 4
       },
       "id": 18,
       "options": {
@@ -1580,7 +1580,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "### VM SKU maximum limits — __VM_SKU_SIZE__\n\nAbsolute aggregate ceilings published for the deployment's reference VM SKU (re-deploy to change). The VM cached and uncached consumed % charts below measure activity against them. When the total provisioned disk limits above exceed these numbers, the disks are over-provisioned and the VM throttles first. `N/A` means the value is not published for this VM series.\n\n| Scope | Max IOPS | Max throughput (MB/s) |\n|---|---|---|\n| VM uncached (remote data disks) | __VM_SKU_MAX_UNCACHED_IOPS__ | __VM_SKU_MAX_UNCACHED_MBPS__ |\n| VM cached (temp disk + host cache) | __VM_SKU_MAX_CACHED_IOPS__ | __VM_SKU_MAX_CACHED_MBPS__ |",
+        "content": "### VM SKU maximum limits — ${vmSkuSize}\n\nThe absolute IOPS and throughput ceilings are set by this VM SKU (**${vmSkuSize}**) and change when you select a different VM. Instead of fixed numbers, use the **VM cached and uncached consumed %** charts below — they measure the selected VM’s live usage against its own SKU ceilings, so a series near 100% means the VM SKU aggregate limit is the bottleneck (resize the VM). The per-disk provisioned limits above show each attached disk’s own ceiling.\n\n_Need the exact published numbers? Look up **${vmSkuSize}** in the Azure VM sizes documentation._",
         "mode": "markdown"
       },
       "pluginVersion": "12.4.8",
@@ -1593,7 +1593,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 74
+        "y": 72
       },
       "id": 32,
       "panels": [],
@@ -1627,7 +1627,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 75
+        "y": 73
       },
       "id": 33,
       "options": {
@@ -1715,7 +1715,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 75
+        "y": 73
       },
       "id": 34,
       "options": {
@@ -1803,7 +1803,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 83
+        "y": 81
       },
       "id": 35,
       "options": {
@@ -1891,7 +1891,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 83
+        "y": 81
       },
       "id": 36,
       "options": {
@@ -1956,7 +1956,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 91,
+        "y": 89,
         "w": 24,
         "h": 1
       },
@@ -2036,7 +2036,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 92,
+        "y": 90,
         "w": 24,
         "h": 12
       },
@@ -2114,7 +2114,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 104,
+        "y": 102,
         "w": 12,
         "h": 9
       },
@@ -2189,7 +2189,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 104,
+        "y": 102,
         "w": 12,
         "h": 9
       },
@@ -2284,7 +2284,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 113,
+        "y": 111,
         "w": 12,
         "h": 9
       },
@@ -2380,7 +2380,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 113,
+        "y": 111,
         "w": 12,
         "h": 9
       },
@@ -2439,7 +2439,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 122,
+        "y": 120,
         "w": 12,
         "h": 9
       },
@@ -2498,7 +2498,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 122,
+        "y": 120,
         "w": 12,
         "h": 9
       },
@@ -2615,6 +2615,34 @@
         "regex": "",
         "skipUrlSync": false,
         "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "grafana-azure-monitor-datasource",
+          "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+        },
+        "hide": 2,
+        "includeAll": false,
+        "label": "VM SKU size",
+        "multi": false,
+        "name": "vmSkuSize",
+        "options": [],
+        "query": {
+          "queryType": "Azure Resource Graph",
+          "azureResourceGraph": {
+            "query": "Resources | where type =~ 'microsoft.compute/virtualmachines' and name =~ '$nativeVm' and resourceGroup =~ '$resourceGroup' | project vmSize = tostring(properties.hardwareProfile.vmSize)"
+          },
+          "subscriptions": [
+            "$subscription"
+          ],
+          "refId": "A"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
         "type": "query"
       },
       {
