@@ -1,7 +1,7 @@
 ---
 title: Azure VM Disk Observability
 description: Azure Workbook and Managed Grafana demo for per-disk VM performance and capacity
-ms.date: 2026-09-04
+ms.date: 2026-09-24
 ms.topic: tutorial
 ---
 
@@ -17,6 +17,10 @@ glance — *is throttling coming from a single disk's SKU limit or from the VM S
 aggregate?* — and then provide detailed trends, provisioned-limit references, and a guest
 disk inventory for context. Hybrid views work for Azure Arc connected servers and native
 Azure VMs monitored by VM Insights.
+
+The deployment can also create six Azure Monitor metric alerts for the selected native
+Azure VM. They notify an email Action Group when any data-disk IOPS/bandwidth or VM
+cached/uncached IOPS/bandwidth consumed-percentage metric reaches 100%.
 
 ## Workbook editions
 
@@ -134,6 +138,7 @@ network access.
 * Azure CLI with an authenticated session
 * Azure Managed Grafana CLI extension (`az extension add --name amg`)
 * Contributor access to the deployment resource group
+* Monitoring Contributor access to the monitored VM's resource group when deploying alerts
 * User Access Administrator or Owner access at each role-assignment scope
 * Grafana Admin or Grafana Editor access when importing into an existing instance
 
@@ -174,6 +179,7 @@ The command prompts for:
 * Deployment resource group and its Azure region when the group does not exist
 * Log Analytics workspace resource ID
 * Native Azure VM resource ID for LUN platform metrics
+* Email address for disk and VM SKU saturation alerts
 * An existing Managed Grafana instance or a name for a new instance
 
 ### Deployment inputs
@@ -191,6 +197,7 @@ Manager IDs.
 | `Location`                      | Azure region name, such as `eastus`                                                    | Required only when the resource group must be created                       |
 | `LogAnalyticsWorkspaceResourceId` | `/subscriptions/<subscription>/resourceGroups/<group>/providers/Microsoft.OperationalInsights/workspaces/<workspace>` | Required                                                                   |
 | `NativeVmResourceId`            | `/subscriptions/<subscription>/resourceGroups/<group>/providers/Microsoft.Compute/virtualMachines/<vm>` | Required                                                                   |
+| `AlertEmailAddress`             | Email address                                                                         | Required when deploying the `Alerts` artifact                              |
 | `GrafanaResourceId`             | Full resource ID of an existing `Microsoft.Dashboard/grafana` resource                | Optional; selects an existing instance directly                            |
 | `GrafanaName`                   | Existing or new Managed Grafana resource name                                          | Optional; used to find or create an instance                               |
 | `WorkbookDisplayName`           | Azure Monitor Workbook display name                                                   | Optional; defaults to `VM Disk Observability`                               |
@@ -201,11 +208,12 @@ Manager IDs.
 | `Grafana`                       | PowerShell switch                                                                     | Optional; artifact selector for the Grafana dashboard                       |
 | `VMInsights`                    | PowerShell switch                                                                     | Optional; artifact selector for the VM Insights workbook                    |
 | `Free`                          | PowerShell switch                                                                     | Optional; artifact selector for the free, Azure VM-only workbook            |
+| `Alerts`                        | PowerShell switch                                                                     | Optional; artifact selector for the email Action Group and metric alerts    |
 
-Use `-Grafana`, `-VMInsights`, and `-Free` to choose which artifacts deploy. When none are
-supplied, all three deploy. Supply any combination to deploy only those, for example
-`./scripts/Deploy-Solution.ps1 -Free` or `-Grafana -VMInsights`. `-Free` on its own does not
-require a Log Analytics workspace, since the free workbook uses only platform metrics.
+Use `-Grafana`, `-VMInsights`, `-Free`, and `-Alerts` to choose which artifacts deploy.
+When none are supplied, all four deploy. Supply any combination to deploy only those, for
+example `./scripts/Deploy-Solution.ps1 -Alerts -AlertEmailAddress ops@example.com` or
+`-Grafana -VMInsights`. `-Free` and `-Alerts` do not require a Log Analytics workspace.
 
 If neither Grafana parameter is supplied, the script displays instances in the
 deployment subscription and prompts you to select one or create a new instance. If
@@ -213,9 +221,10 @@ multiple instances match `GrafanaName`, supply `GrafanaResourceId` to disambigua
 
 The workbook-only command uses `TenantId`, `SubscriptionId`, `ResourceGroupName`,
 `LogAnalyticsWorkspaceResourceId`, and `NativeVmResourceId`. Its optional
-`DeploymentName` defaults to `vm-disk-observability` and its optional
-`WorkbookDisplayName` defaults to `VM Disk Observability`; pass the same display name used
-at deployment to update an existing workbook in place. The standalone Grafana import
+`DeploymentName` defaults to `vm-disk-observability`, its optional
+`WorkbookDisplayName` defaults to `VM Disk Observability`, and supplying
+`AlertEmailAddress` also deploys the alerts; pass the same display name used at deployment
+to update an existing workbook in place. The standalone Grafana import
 uses `TenantId`, `GrafanaResourceId`, `WorkspaceResourceId`, and `NativeVmResourceId`;
 `DashboardFile` and `DashboardTitle` are optional.
 
@@ -224,6 +233,38 @@ managed identity Monitoring Reader over the workspace and native VM. It grants t
 importing user or service principal Grafana Editor on the selected instance. When it
 creates an instance, it grants Grafana Admin to that principal by default. The
 role-assignment steps require User Access Administrator or Owner permissions.
+
+### Disk and VM SKU alerts
+
+The deployment creates these six metric alert rules:
+
+| Scope | Azure Monitor metric | Condition |
+|-------|----------------------|-----------|
+| Data disks | Data Disk IOPS Consumed Percentage | Any attached data disk reaches 100% of its provisioned IOPS limit |
+| Data disks | Data Disk Bandwidth Consumed Percentage | Any attached data disk reaches 100% of its provisioned bandwidth limit |
+| VM SKU | VM Cached IOPS Consumed Percentage | The VM reaches 100% of its cached IOPS limit |
+| VM SKU | VM Uncached IOPS Consumed Percentage | The VM reaches 100% of its uncached IOPS limit |
+| VM SKU | VM Cached Bandwidth Consumed Percentage | The VM reaches 100% of its cached bandwidth limit |
+| VM SKU | VM Uncached Bandwidth Consumed Percentage | The VM reaches 100% of its uncached bandwidth limit |
+
+The alerts evaluate every 15 minutes over a 15-minute window and use the **Maximum**
+aggregation with a static `GreaterThanOrEqual 100` threshold. Each data-disk alert
+aggregates all LUNs into one time series, which prevents a notification burst when
+multiple disks saturate together. The alert notification therefore indicates that a disk
+limit was reached but does not identify the specific LUN. Use the per-LUN Workbook or
+Grafana charts to identify the affected disk.
+
+Cached and uncached VM SKU ceilings use separate alerts so either ceiling can trigger
+without requiring both to be saturated. Alerts are stateful and have automatic mitigation
+enabled. Azure sends one fired notification for an alert time series, keeps it active
+while the condition remains true. Azure resolves a stateful metric alert after the
+condition is clear for three consecutive evaluations, so a resolved notification normally
+arrives 45 to 60 minutes after the final 100% sample. The Action Group uses the Azure
+Monitor common alert schema.
+
+The Action Group and six metric alerts are deployed to the monitored VM's resource group,
+including when that VM is in a different subscription from the workbook. Azure Monitor
+metric alert pricing applies.
 
 Open Azure Monitor, select **Workbooks**, and open **VM Disk Observability**. Use the
 machine and mount parameters to reduce visual noise. Use the native VM picker to

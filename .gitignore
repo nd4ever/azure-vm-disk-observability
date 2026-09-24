@@ -1,3 +1,4 @@
 out/
 *.local.json
 *.token
+.azure/

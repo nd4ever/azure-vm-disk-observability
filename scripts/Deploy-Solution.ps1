@@ -20,6 +20,8 @@
     Resource ID of the Log Analytics workspace containing VM Insights data.
 .PARAMETER NativeVmResourceId
     Resource ID of the native Azure VM used for per-LUN platform metric charts.
+.PARAMETER AlertEmailAddress
+    Email address that receives disk and VM SKU saturation alerts.
 .PARAMETER GrafanaResourceId
     Resource ID of an existing Azure Managed Grafana instance.
 .PARAMETER GrafanaName
@@ -41,8 +43,10 @@
     Deploys the VM Insights Azure Monitor Workbook. Acts as an artifact selector.
 .PARAMETER Free
     Deploys the free, Azure VM-only Azure Monitor Workbook. Acts as an artifact selector.
+.PARAMETER Alerts
+    Deploys the email Action Group and disk/VM SKU metric alerts. Acts as an artifact selector.
 
-    When none of -Grafana, -VMInsights, or -Free are supplied, all three are deployed.
+    When no artifact selectors are supplied, all four artifacts are deployed.
     Supply any combination to deploy only those artifacts. -Free alone does not require a
     Log Analytics workspace.
 .EXAMPLE
@@ -78,6 +82,10 @@ param(
     [string]$NativeVmResourceId,
 
     [Parameter(Mandatory = $false)]
+    [ValidatePattern('^[^@\s]+@[^@\s]+\.[^@\s]+$')]
+    [string]$AlertEmailAddress,
+
+    [Parameter(Mandatory = $false)]
     [string]$GrafanaResourceId,
 
     [Parameter(Mandatory = $false)]
@@ -107,7 +115,10 @@ param(
     [switch]$VMInsights,
 
     [Parameter(Mandatory = $false)]
-    [switch]$Free
+    [switch]$Free,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$Alerts
 )
 
 $ErrorActionPreference = 'Stop'
@@ -356,10 +367,11 @@ if ($MyInvocation.InvocationName -ne '.') {
                 -FailureMessage "Unable to create resource group '$ResourceGroupName'."
         }
 
-        $SelectedArtifacts = $Grafana.IsPresent -or $VMInsights.IsPresent -or $Free.IsPresent
+        $SelectedArtifacts = $Grafana.IsPresent -or $VMInsights.IsPresent -or $Free.IsPresent -or $Alerts.IsPresent
         $DeployGrafana = if ($SelectedArtifacts) { $Grafana.IsPresent } else { $true }
         $DeployVMInsights = if ($SelectedArtifacts) { $VMInsights.IsPresent } else { $true }
         $DeployFree = if ($SelectedArtifacts) { $Free.IsPresent } else { $true }
+        $DeployAlerts = if ($SelectedArtifacts) { $Alerts.IsPresent } else { $true }
         $NeedWorkspace = $DeployVMInsights -or $DeployGrafana
 
         if ($NeedWorkspace) {
@@ -370,6 +382,14 @@ if ($MyInvocation.InvocationName -ne '.') {
         $NativeVmResourceId = Read-DeploymentValue `
             -Value $NativeVmResourceId `
             -Prompt 'Native Azure VM resource ID'
+        if ($DeployAlerts) {
+            $AlertEmailAddress = Read-DeploymentValue `
+                -Value $AlertEmailAddress `
+                -Prompt 'Email address for disk and VM SKU saturation alerts'
+            if ($AlertEmailAddress -notmatch '^[^@\s]+@[^@\s]+\.[^@\s]+$') {
+                throw "AlertEmailAddress '$AlertEmailAddress' is not a valid email address."
+            }
+        }
 
         $NativeVmParts = ConvertFrom-AzureResourceId -ResourceId $NativeVmResourceId
         if ($NativeVmParts.ProviderNamespace -ne 'Microsoft.Compute' -or $NativeVmParts.ResourceType -ne 'virtualMachines') {
@@ -484,7 +504,7 @@ if ($MyInvocation.InvocationName -ne '.') {
         }
         }
 
-        $ShouldRunBicep = $DeployVMInsights -or $DeployFree -or $ShouldDeployGrafana
+        $ShouldRunBicep = $DeployVMInsights -or $DeployFree -or $DeployAlerts -or $ShouldDeployGrafana
         $Deployment = $null
         if ($ShouldRunBicep) {
             $DeploymentParameters = @(
@@ -494,8 +514,12 @@ if ($MyInvocation.InvocationName -ne '.') {
                 "workbookDisplayName=$WorkbookDisplayName",
                 "shouldDeployWorkbook=$($DeployVMInsights.ToString().ToLowerInvariant())",
                 "shouldDeployAzureVmOnlyWorkbook=$($DeployFree.ToString().ToLowerInvariant())",
+                "shouldDeployAlerts=$($DeployAlerts.ToString().ToLowerInvariant())",
                 "shouldDeployGrafana=$($ShouldDeployGrafana.ToString().ToLowerInvariant())"
             )
+            if ($DeployAlerts) {
+                $DeploymentParameters += "alertEmailAddress=$AlertEmailAddress"
+            }
             if ($ShouldDeployGrafana) {
                 $DeploymentParameters += "grafanaName=$GrafanaName"
             }
@@ -595,6 +619,10 @@ if ($MyInvocation.InvocationName -ne '.') {
         }
         if ($DeployFree -and $Deployment) {
             Write-Information "Free (Azure VM-only) workbook deployed: $($Deployment.properties.outputs.azureVmOnlyWorkbookResourceId.value)" -InformationAction Continue
+        }
+        if ($DeployAlerts -and $Deployment) {
+            Write-Information "Alert Action Group deployed: $($Deployment.properties.outputs.alertActionGroupResourceId.value)" -InformationAction Continue
+            Write-Information "Metric alerts deployed: $($Deployment.properties.outputs.metricAlertResourceIds.value.Count)" -InformationAction Continue
         }
         if ($DeployGrafana) {
             Write-Information "Azure Managed Grafana: $GrafanaResourceId" -InformationAction Continue

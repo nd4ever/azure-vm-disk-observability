@@ -19,6 +19,8 @@
     Resource ID of the Log Analytics workspace containing VM Insights data.
 .PARAMETER NativeVmResourceId
     Resource ID of the native Azure VM used for per-LUN platform metric charts.
+.PARAMETER AlertEmailAddress
+    Optional email address. When supplied, also deploys disk and VM SKU saturation alerts.
 .PARAMETER DeploymentName
     Resource group deployment name.
 .EXAMPLE
@@ -48,6 +50,10 @@ param(
     [Parameter(Mandatory = $true)]
     [ValidateNotNullOrEmpty()]
     [string]$NativeVmResourceId,
+
+    [Parameter(Mandatory = $false)]
+    [ValidatePattern('^[^@\s]+@[^@\s]+\.[^@\s]+$')]
+    [string]$AlertEmailAddress,
 
     [Parameter(Mandatory = $false)]
     [ValidateNotNullOrEmpty()]
@@ -137,16 +143,25 @@ if ($MyInvocation.InvocationName -ne '.') {
             throw "Unable to resolve native Azure VM '$NativeVmResourceId'."
         }
 
+        $DeploymentParameters = @(
+            "logAnalyticsWorkspaceResourceId=$LogAnalyticsWorkspaceResourceId",
+            "nativeVmResourceId=$NativeVmResourceId",
+            "workbookDisplayName=$WorkbookDisplayName",
+            'shouldDeployGrafana=false'
+        )
+        if (-not [string]::IsNullOrWhiteSpace($AlertEmailAddress)) {
+            $DeploymentParameters += @(
+                'shouldDeployAlerts=true',
+                "alertEmailAddress=$AlertEmailAddress"
+            )
+        }
+
         & $AzureCli deployment group create `
             --subscription $SubscriptionId `
             --resource-group $ResourceGroupName `
             --name $DeploymentName `
             --template-file $TemplateFile `
-            --parameters `
-                logAnalyticsWorkspaceResourceId=$LogAnalyticsWorkspaceResourceId `
-                nativeVmResourceId=$NativeVmResourceId `
-                workbookDisplayName=$WorkbookDisplayName `
-                shouldDeployGrafana=false `
+            --parameters $DeploymentParameters `
             --output table
 
         if ($LASTEXITCODE -ne 0) {

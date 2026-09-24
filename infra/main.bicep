@@ -1,5 +1,5 @@
 metadata name = 'VM Disk Observability'
-metadata description = 'Deploys a shared Azure Monitor Workbook and optionally creates an Azure Managed Grafana instance.'
+metadata description = 'Deploys Azure Monitor Workbooks, disk saturation alerts, and optionally Azure Managed Grafana.'
 
 targetScope = 'resourceGroup'
 
@@ -11,6 +11,17 @@ param logAnalyticsWorkspaceResourceId string
 
 @description('The resource ID of the native Azure VM used for per-LUN platform metric charts.')
 param nativeVmResourceId string
+
+@description('Whether to deploy metric alerts for disk and VM SKU saturation.')
+param shouldDeployAlerts bool = false
+
+@description('The email address that receives disk and VM SKU saturation notifications.')
+param alertEmailAddress string = ''
+
+@description('The consumed-percentage value that triggers disk and VM SKU alerts.')
+@minValue(1)
+@maxValue(100)
+param alertThreshold int = 100
 
 @description('The display name of the Azure Monitor Workbook.')
 param workbookDisplayName string = 'VM Disk Observability'
@@ -51,6 +62,22 @@ var workbookData = replace(workbookWithWorkspace, '__NATIVE_VM_RESOURCE_ID__', n
 
 var vmOnlyTemplate = loadTextContent('../workbooks/vm-disk-observability-vmonly.workbook.json')
 var vmOnlyData = replace(vmOnlyTemplate, '__NATIVE_VM_RESOURCE_ID__', nativeVmResourceId)
+
+var nativeVmResourceIdParts = split(nativeVmResourceId, '/')
+var nativeVmSubscriptionId = nativeVmResourceIdParts[2]
+var nativeVmResourceGroupName = nativeVmResourceIdParts[4]
+var nativeVmName = nativeVmResourceIdParts[8]
+
+module alerts './alerts.bicep' = if (shouldDeployAlerts) {
+  name: 'vm-disk-observability-alerts'
+  scope: resourceGroup(nativeVmSubscriptionId, nativeVmResourceGroupName)
+  params: {
+    alertEmailAddress: alertEmailAddress
+    alertThreshold: alertThreshold
+    nativeVmName: nativeVmName
+    nativeVmResourceId: nativeVmResourceId
+  }
+}
 
 resource grafana 'Microsoft.Dashboard/grafana@2024-10-01' = if (shouldDeployGrafana) {
   name: grafanaName
@@ -103,6 +130,12 @@ output workbookResourceId string? = workbook.?id
 
 @description('The resource ID of the free, Azure VM-only workbook when deployed.')
 output azureVmOnlyWorkbookResourceId string? = workbookVmOnly.?id
+
+@description('The resource ID of the alert notification Action Group when alerts are deployed.')
+output alertActionGroupResourceId string? = alerts.?outputs.actionGroupResourceId
+
+@description('The resource IDs of the disk and VM SKU metric alerts.')
+output metricAlertResourceIds array = alerts.?outputs.metricAlertResourceIds ?? []
 
 @description('The resource ID of the Azure Managed Grafana instance when created by this deployment.')
 output grafanaResourceId string? = grafana.?id

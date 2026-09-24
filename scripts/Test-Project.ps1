@@ -39,6 +39,8 @@ if ($MyInvocation.InvocationName -ne '.') {
         $WorkbookPath = Join-Path $ProjectRoot 'workbooks/vm-disk-observability.workbook.json'
         $GrafanaPath = Join-Path $ProjectRoot 'grafana/vm-disk-observability.dashboard.json'
         $BicepPath = Join-Path $ProjectRoot 'infra/main.bicep'
+        $AlertBicepPath = Join-Path $ProjectRoot 'infra/alerts.bicep'
+        $BicepFiles = @(Get-ChildItem -Path (Join-Path $ProjectRoot 'infra') -Filter '*.bicep')
         $QueryRoot = Join-Path $ProjectRoot 'queries'
         $PowerShellRoot = Join-Path $ProjectRoot 'scripts'
 
@@ -187,6 +189,44 @@ if ($MyInvocation.InvocationName -ne '.') {
             throw 'Bicep template compilation failed.'
         }
 
+        $CompiledAlertTemplate = & $AzureCli bicep build --file $AlertBicepPath --stdout | ConvertFrom-Json -Depth 100
+        if ($LASTEXITCODE -ne 0) {
+            throw 'Alert Bicep template compilation failed.'
+        }
+
+        $ExpectedAlertMetrics = @(
+            'Data Disk IOPS Consumed Percentage'
+            'Data Disk Bandwidth Consumed Percentage'
+            'VM Cached IOPS Consumed Percentage'
+            'VM Uncached IOPS Consumed Percentage'
+            'VM Cached Bandwidth Consumed Percentage'
+            'VM Uncached Bandwidth Consumed Percentage'
+        )
+        $ActualAlertMetrics = @($CompiledAlertTemplate.variables.alertDefinitions.metricName)
+        $AlertMetricDifference = @(Compare-Object -ReferenceObject $ExpectedAlertMetrics -DifferenceObject $ActualAlertMetrics)
+        if ($ActualAlertMetrics.Count -ne 6 -or $AlertMetricDifference.Count -gt 0) {
+            throw 'The alert template must contain exactly the six disk and VM SKU consumed-percentage metrics.'
+        }
+        if ($CompiledAlertTemplate.parameters.alertThreshold.defaultValue -ne 100) {
+            throw 'The default disk and VM SKU alert threshold must be 100%.'
+        }
+        $CompiledMetricAlert = @(
+            $CompiledAlertTemplate.resources |
+                Where-Object type -EQ 'Microsoft.Insights/metricAlerts'
+        )
+        if ($CompiledMetricAlert.Count -ne 1) {
+            throw 'The alert template must contain one looped metric-alert resource.'
+        }
+        if (
+            $CompiledMetricAlert[0].properties.evaluationFrequency -ne 'PT15M' -or
+            $CompiledMetricAlert[0].properties.windowSize -ne 'PT15M'
+        ) {
+            throw 'Metric alerts must evaluate every 15 minutes over a 15-minute window.'
+        }
+        if (@($CompiledMetricAlert[0].properties.criteria.allOf[0].dimensions).Count -ne 0) {
+            throw 'Metric alerts must aggregate dimensions into one alert time series.'
+        }
+
         $QueryFiles = @(Get-ChildItem -Path $QueryRoot -Filter '*.kql')
         if ($QueryFiles.Count -eq 0) {
             throw 'No KQL query files were found.'
@@ -213,7 +253,7 @@ if ($MyInvocation.InvocationName -ne '.') {
             }
         }
 
-        Write-Output "Validation passed: 2 dashboard files, 1 Bicep template, $((Get-ChildItem -Path $PowerShellRoot -Filter '*.ps1').Count) PowerShell scripts, and $($QueryFiles.Count) KQL files."
+        Write-Output "Validation passed: 2 dashboard files, $($BicepFiles.Count) Bicep templates, $((Get-ChildItem -Path $PowerShellRoot -Filter '*.ps1').Count) PowerShell scripts, and $($QueryFiles.Count) KQL files."
     }
     catch {
         Write-Error -ErrorAction Continue "Project validation failed: $($_.Exception.Message)"
