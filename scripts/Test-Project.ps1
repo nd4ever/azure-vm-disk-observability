@@ -37,18 +37,27 @@ if ($MyInvocation.InvocationName -ne '.') {
     try {
         $ProjectRoot = Split-Path -Path $PSScriptRoot -Parent
         $WorkbookPath = Join-Path $ProjectRoot 'workbooks/vm-disk-observability.workbook.json'
+        $FreeWorkbookPath = Join-Path $ProjectRoot 'workbooks/vm-disk-observability-vmonly.workbook.json'
         $GrafanaPath = Join-Path $ProjectRoot 'grafana/vm-disk-observability.dashboard.json'
-        $BicepPath = Join-Path $ProjectRoot 'infra/main.bicep'
         $AlertBicepPath = Join-Path $ProjectRoot 'infra/alerts.bicep'
+        $PolicyBicepPath = Join-Path $ProjectRoot 'infra/free-guest-metrics-policy.bicep'
+        $DeploySolutionScriptPath = Join-Path $ProjectRoot 'scripts/Deploy-Solution.ps1'
+        $GrafanaImportScriptPath = Join-Path $ProjectRoot 'scripts/Import-GrafanaDashboard.ps1'
+        $PolicyScriptPath = Join-Path $ProjectRoot 'scripts/Deploy-FreeGuestMetricsPolicy.ps1'
         $BicepFiles = @(Get-ChildItem -Path (Join-Path $ProjectRoot 'infra') -Filter '*.bicep')
         $QueryRoot = Join-Path $ProjectRoot 'queries'
         $PowerShellRoot = Join-Path $ProjectRoot 'scripts'
 
         $Workbook = Get-Content -Path $WorkbookPath -Raw | ConvertFrom-Json -Depth 100
+        $FreeWorkbookSource = Get-Content -Path $FreeWorkbookPath -Raw
+        $FreeWorkbook = $FreeWorkbookSource | ConvertFrom-Json -Depth 100
         $Grafana = Get-Content -Path $GrafanaPath -Raw | ConvertFrom-Json -Depth 100
 
         if ($Workbook.version -ne 'Notebook/1.0') {
             throw 'The Azure Workbook does not use Notebook/1.0 format.'
+        }
+        if ($FreeWorkbook.version -ne 'Notebook/1.0') {
+            throw 'The free Azure Workbook does not use Notebook/1.0 format.'
         }
 
         if ($Grafana.schemaVersion -lt 41) {
@@ -109,6 +118,140 @@ if ($MyInvocation.InvocationName -ne '.') {
             throw 'The Workbook VirtualMachines parameter must query Azure Resource Graph across all accessible subscriptions.'
         }
 
+        $FreeWorkbookPrometheusWorkspace = @(
+            $FreeWorkbook.items |
+                Where-Object { $_.type -eq 9 } |
+                ForEach-Object { $_.content.parameters } |
+                Where-Object { $_.name -eq 'PrometheusWorkspace' }
+        )
+        if (
+            $FreeWorkbookPrometheusWorkspace.Count -ne 1 -or
+            $FreeWorkbookPrometheusWorkspace[0].type -ne 5 -or
+            $FreeWorkbookPrometheusWorkspace[0].value -ne '__AZURE_MONITOR_WORKSPACE_RESOURCE_ID__' -or
+            -not $FreeWorkbookPrometheusWorkspace[0].typeSettings.resourceTypeFilter.'microsoft.monitor/accounts'
+        ) {
+            throw 'The free Workbook must define one Azure Monitor workspace resource parameter.'
+        }
+
+        $FreeWorkbookPrometheusItems = @(
+            $FreeWorkbook.items |
+                Where-Object { $_.type -eq 3 -and $_.content.queryType -eq 16 }
+        )
+        if ($FreeWorkbookPrometheusItems.Count -ne 4) {
+            throw 'The free Workbook must contain exactly four Prometheus guest disk items.'
+        }
+        foreach ($PrometheusItem in $FreeWorkbookPrometheusItems) {
+            if (
+                $PrometheusItem.content.version -ne 'KqlItem/1.0' -or
+                $PrometheusItem.content.resourceType -ne 'microsoft.monitor/accounts' -or
+                $PrometheusItem.content.crossComponentResources -notcontains '{PrometheusWorkspace}' -or
+                $PrometheusItem.content.timeContextFromParameter -ne 'TimeRange'
+            ) {
+                throw "Prometheus item '$($PrometheusItem.name)' is not bound to the Azure Monitor workspace and TimeRange parameters."
+            }
+
+            $PrometheusQuery = $PrometheusItem.content.query | ConvertFrom-Json
+            if (
+                $PrometheusQuery.version -ne 'PrometheusQueryProvider/1.0' -or
+                $PrometheusQuery.queryText -notmatch '\{VirtualMachines\}' -or
+                $PrometheusQuery.queryText -notmatch 'microsoft\.resourceid'
+            ) {
+                throw "Prometheus item '$($PrometheusItem.name)' does not use the expected provider and selected-VM filter."
+            }
+
+            $ExpectedQueryType = if ($PrometheusItem.name -eq 'GuestFilesystemCapacity') { 'query' } else { 'query_range' }
+            $ExpectedVisualization = if ($ExpectedQueryType -eq 'query') { 'table' } else { 'timechart' }
+            if (
+                $PrometheusQuery.type -ne $ExpectedQueryType -or
+                $PrometheusItem.content.visualization -ne $ExpectedVisualization
+            ) {
+                throw "Prometheus item '$($PrometheusItem.name)' has an invalid query or visualization type."
+            }
+        }
+
+        $GuestFilesystemCapacity = @(
+            $FreeWorkbookPrometheusItems |
+                Where-Object { $_.name -eq 'GuestFilesystemCapacity' }
+        )
+        if ($GuestFilesystemCapacity.Count -ne 1) {
+            throw 'The free Workbook must contain one guest filesystem capacity table.'
+        }
+        $GuestFilesystemCapacityQuery = $GuestFilesystemCapacity[0].content.query | ConvertFrom-Json
+        $GuestFilesystemValueLabel = @(
+            $GuestFilesystemCapacity[0].content.gridSettings.labelSettings |
+                Where-Object { $_.columnId -eq 'value' }
+        )
+        if (
+            $GuestFilesystemCapacityQuery.queryText -notmatch '/ 1000000000' -or
+            $GuestFilesystemCapacityQuery.queryText -notmatch 'round\(' -or
+            $GuestFilesystemCapacityQuery.queryText -notmatch 'Size \(GB\)' -or
+            $GuestFilesystemValueLabel.Count -ne 1 -or
+            $GuestFilesystemValueLabel[0].label -ne 'Value (GB or %)'
+        ) {
+            throw 'The guest filesystem capacity table must round values and label decimal GB and percentage units.'
+        }
+
+        $GuestDiskPerformanceItems = @(
+            $FreeWorkbookPrometheusItems |
+                Where-Object { $_.name -ne 'GuestFilesystemCapacity' }
+        )
+        foreach ($GuestDiskPerformanceItem in $GuestDiskPerformanceItems) {
+            $GuestDiskPerformanceQuery = $GuestDiskPerformanceItem.content.query | ConvertFrom-Json
+            if (
+                $GuestDiskPerformanceQuery.queryText -notmatch 'device!~' -or
+                $GuestDiskPerformanceQuery.queryText -notmatch 'system\.filesystem\.usage' -or
+                $GuestDiskPerformanceQuery.queryText -notmatch 'group_left'
+            ) {
+                throw "Prometheus item '$($GuestDiskPerformanceItem.name)' must exclude pseudo devices and retain only filesystem-backed disk series."
+            }
+        }
+        foreach ($Placeholder in @('__NATIVE_VM_RESOURCE_ID__', '__AZURE_MONITOR_WORKSPACE_RESOURCE_ID__')) {
+            if ($FreeWorkbookSource -notmatch [regex]::Escape($Placeholder)) {
+                throw "The free Workbook is missing deployment placeholder '$Placeholder'."
+            }
+        }
+
+        if (-not (Test-Path -LiteralPath $PolicyBicepPath -PathType Leaf)) {
+            throw 'The free guest metrics policy Bicep template is missing.'
+        }
+        if (-not (Test-Path -LiteralPath $PolicyScriptPath -PathType Leaf)) {
+            throw 'The free guest metrics policy deployment script is missing.'
+        }
+        $PolicyBicepSource = Get-Content -Path $PolicyBicepPath -Raw
+        $PolicyScriptSource = Get-Content -Path $PolicyScriptPath -Raw
+        $DeploySolutionScriptSource = Get-Content -Path $DeploySolutionScriptPath -Raw
+        $GrafanaImportScriptSource = Get-Content -Path $GrafanaImportScriptPath -Raw
+        $ExpectedPolicyDefinitionIds = @(
+            'ca817e41-e85a-4783-bc7f-dc532d36235e'
+            'a4034bc6-ae50-406d-bf76-50f4ee5a7811'
+            '244efd75-0d92-453c-b9a3-7d73ca36ed52'
+            '58e891b9-ce13-4ac3-86e4-ac3e1f20cb07'
+        )
+        foreach ($PolicyDefinitionId in $ExpectedPolicyDefinitionIds) {
+            if ($PolicyBicepSource -notmatch [regex]::Escape($PolicyDefinitionId)) {
+                throw "The policy initiative is missing built-in policy '$PolicyDefinitionId'."
+            }
+        }
+        if (
+            $PolicyBicepSource -notmatch "targetScope\s*=\s*'managementGroup'" -or
+            $PolicyBicepSource -notmatch "kind:\s*'resourceLocation'" -or
+            $PolicyScriptSource -notmatch "Prompt 'Management group name'" -or
+            $PolicyScriptSource -notmatch "Get-Date -AsUTC -Format 'yyyyMMddHHmmssfff'" -or
+            $PolicyScriptSource -notmatch 'performanceCountersOTel'
+        ) {
+            throw 'Free guest metrics policy must use management-group scope, a resource-location selector, validated OTel counters, unique remediations, and an interactive management-group prompt.'
+        }
+        if (
+            $DeploySolutionScriptSource -notmatch '(?s)\$DeployFreeGuestMetrics\s*=\s*if\s*\(\$SelectedArtifacts\).+?else\s*\{\s*\$false\s*\}' -or
+            $DeploySolutionScriptSource -notmatch 'monitoringAccounts' -or
+            $DeploySolutionScriptSource -notmatch 'performanceCountersOTel'
+        ) {
+            throw 'The unified deployment must keep management-group policy opt-in and validate the DCR destination and counters.'
+        }
+        if ($GrafanaImportScriptSource -notmatch "type -eq 'prometheus'") {
+            throw 'The Grafana import must detect whether a Prometheus datasource is configured.'
+        }
+
         $WorkbookMetricItems = @($Workbook.items | Where-Object { $_.type -eq 10 })
         $InvalidWorkbookMetricItems = @(
             $WorkbookMetricItems |
@@ -157,11 +300,28 @@ if ($MyInvocation.InvocationName -ne '.') {
             throw "Grafana query variables must let formatters expand All values: $($GrafanaCustomAllVariables.name -join ', ')."
         }
 
+        $GrafanaGuestFilesystemPanels = @(
+            $Grafana.panels |
+                Where-Object { $_.id -eq 37 }
+        )
+        if ($GrafanaGuestFilesystemPanels.Count -ne 1) {
+            throw 'The Grafana dashboard must contain one guest filesystem panel with ID 37.'
+        }
+        $GrafanaGuestFilesystemExpression = [string]$GrafanaGuestFilesystemPanels[0].targets[0].expr
+        $NormalizedDeviceLabelCount = (
+            [regex]::Matches(
+                $GrafanaGuestFilesystemExpression,
+                [regex]::Escape('"device", "$1", "device", "^/dev/(.*)$"')
+            )
+        ).Count
+        if ($NormalizedDeviceLabelCount -lt 2) {
+            throw 'The Grafana guest filesystem panel must normalize Linux /dev device labels before joining disk and filesystem metrics.'
+        }
+
         $DeploymentSourcePaths = @(
             (Join-Path $ProjectRoot 'README.md')
             (Join-Path $ProjectRoot 'package.json')
-            $BicepPath
-        ) + @(Get-ChildItem -Path $PowerShellRoot -Filter '*.ps1' | Select-Object -ExpandProperty FullName)
+        ) + @($BicepFiles.FullName) + @(Get-ChildItem -Path $PowerShellRoot -Filter '*.ps1' | Select-Object -ExpandProperty FullName)
         $ConcreteAzureResourceIdPattern = '(?i)/subscriptions/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
         $EnvironmentSpecificSourcePaths = @(
             $DeploymentSourcePaths |
@@ -184,9 +344,11 @@ if ($MyInvocation.InvocationName -ne '.') {
         }
 
         $AzureCli = (Get-Command az -ErrorAction Stop).Source
-        & $AzureCli bicep build --file $BicepPath --stdout | Out-Null
-        if ($LASTEXITCODE -ne 0) {
-            throw 'Bicep template compilation failed.'
+        foreach ($BicepFile in $BicepFiles) {
+            & $AzureCli bicep build --file $BicepFile.FullName --stdout | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+                throw "Bicep template compilation failed for '$($BicepFile.Name)'."
+            }
         }
 
         $CompiledAlertTemplate = & $AzureCli bicep build --file $AlertBicepPath --stdout | ConvertFrom-Json -Depth 100
@@ -223,8 +385,35 @@ if ($MyInvocation.InvocationName -ne '.') {
         ) {
             throw 'Metric alerts must evaluate every 15 minutes over a 15-minute window.'
         }
-        if (@($CompiledMetricAlert[0].properties.criteria.allOf[0].dimensions).Count -ne 0) {
-            throw 'Metric alerts must aggregate dimensions into one alert time series.'
+
+        $DataDiskAlertDefinitions = @(
+            $CompiledAlertTemplate.variables.alertDefinitions |
+                Where-Object metricName -Like 'Data Disk *'
+        )
+        $InvalidDataDiskDimensions = @(
+            $DataDiskAlertDefinitions |
+                Where-Object {
+                    @($_.dimensions).Count -ne 1 -or
+                    $_.dimensions[0].name -ne 'LUN' -or
+                    $_.dimensions[0].operator -ne 'Include' -or
+                    @($_.dimensions[0].values).Count -ne 1 -or
+                    $_.dimensions[0].values[0] -ne '*'
+                }
+        )
+        if ($DataDiskAlertDefinitions.Count -ne 2 -or $InvalidDataDiskDimensions.Count -gt 0) {
+            throw 'Data-disk alerts must split alert time series by every LUN dimension value.'
+        }
+
+        $VmSkuAlertDefinitions = @(
+            $CompiledAlertTemplate.variables.alertDefinitions |
+                Where-Object metricName -Like 'VM *'
+        )
+        $InvalidVmSkuDimensions = @(
+            $VmSkuAlertDefinitions |
+                Where-Object { @($_.dimensions).Count -ne 0 }
+        )
+        if ($VmSkuAlertDefinitions.Count -ne 4 -or $InvalidVmSkuDimensions.Count -gt 0) {
+            throw 'VM SKU alerts must remain VM-level alert time series without dimensions.'
         }
 
         $QueryFiles = @(Get-ChildItem -Path $QueryRoot -Filter '*.kql')
@@ -253,7 +442,7 @@ if ($MyInvocation.InvocationName -ne '.') {
             }
         }
 
-        Write-Output "Validation passed: 2 dashboard files, $($BicepFiles.Count) Bicep templates, $((Get-ChildItem -Path $PowerShellRoot -Filter '*.ps1').Count) PowerShell scripts, and $($QueryFiles.Count) KQL files."
+        Write-Output "Validation passed: 3 dashboard files, $($BicepFiles.Count) Bicep templates, $((Get-ChildItem -Path $PowerShellRoot -Filter '*.ps1').Count) PowerShell scripts, and $($QueryFiles.Count) KQL files."
     }
     catch {
         Write-Error -ErrorAction Continue "Project validation failed: $($_.Exception.Message)"

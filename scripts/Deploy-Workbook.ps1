@@ -17,6 +17,8 @@
     Resource group where the workbook resource is stored.
 .PARAMETER LogAnalyticsWorkspaceResourceId
     Resource ID of the Log Analytics workspace containing VM Insights data.
+.PARAMETER AzureMonitorWorkspaceResourceId
+    Resource ID of the Azure Monitor workspace containing default OpenTelemetry guest metrics.
 .PARAMETER NativeVmResourceId
     Resource ID of the native Azure VM used for per-LUN platform metric charts.
 .PARAMETER AlertEmailAddress
@@ -24,7 +26,7 @@
 .PARAMETER DeploymentName
     Resource group deployment name.
 .EXAMPLE
-    ./scripts/Deploy-Workbook.ps1 -TenantId <tenant> -SubscriptionId <subscription> -ResourceGroupName <group> -LogAnalyticsWorkspaceResourceId <id> -NativeVmResourceId <id>
+    ./scripts/Deploy-Workbook.ps1 -TenantId <tenant> -SubscriptionId <subscription> -ResourceGroupName <group> -LogAnalyticsWorkspaceResourceId <id> -AzureMonitorWorkspaceResourceId <id> -NativeVmResourceId <id>
 .NOTES
     Run validation first with: npm run validate
 #>
@@ -46,6 +48,10 @@ param(
     [Parameter(Mandatory = $true)]
     [ValidateNotNullOrEmpty()]
     [string]$LogAnalyticsWorkspaceResourceId,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$AzureMonitorWorkspaceResourceId,
 
     [Parameter(Mandatory = $true)]
     [ValidateNotNullOrEmpty()]
@@ -114,15 +120,27 @@ if ($MyInvocation.InvocationName -ne '.') {
         }
 
         $WorkspaceParts = ConvertFrom-AzureResourceId -ResourceId $LogAnalyticsWorkspaceResourceId
+        $AzureMonitorWorkspaceParts = ConvertFrom-AzureResourceId -ResourceId $AzureMonitorWorkspaceResourceId
         $NativeVmParts = ConvertFrom-AzureResourceId -ResourceId $NativeVmResourceId
         if ($WorkspaceParts.ProviderNamespace -ne 'Microsoft.OperationalInsights' -or $WorkspaceParts.ResourceType -ne 'workspaces') {
             throw 'LogAnalyticsWorkspaceResourceId does not identify a Log Analytics workspace.'
+        }
+        if (
+            $AzureMonitorWorkspaceParts.ProviderNamespace -ne 'Microsoft.Monitor' -or
+            $AzureMonitorWorkspaceParts.ResourceType -ne 'accounts'
+        ) {
+            throw 'AzureMonitorWorkspaceResourceId does not identify an Azure Monitor workspace.'
         }
         if ($NativeVmParts.ProviderNamespace -ne 'Microsoft.Compute' -or $NativeVmParts.ResourceType -ne 'virtualMachines') {
             throw 'NativeVmResourceId does not identify an Azure virtual machine.'
         }
 
-        foreach ($ReferencedSubscriptionId in @($WorkspaceParts.SubscriptionId, $NativeVmParts.SubscriptionId) | Select-Object -Unique) {
+        $ReferencedSubscriptionIds = @(
+            $WorkspaceParts.SubscriptionId
+            $AzureMonitorWorkspaceParts.SubscriptionId
+            $NativeVmParts.SubscriptionId
+        ) | Select-Object -Unique
+        foreach ($ReferencedSubscriptionId in $ReferencedSubscriptionIds) {
             $ReferencedAccount = & $AzureCli account show `
                 --subscription $ReferencedSubscriptionId `
                 --output json | ConvertFrom-Json
@@ -138,6 +156,10 @@ if ($MyInvocation.InvocationName -ne '.') {
         if ($LASTEXITCODE -ne 0) {
             throw "Unable to resolve Log Analytics workspace '$LogAnalyticsWorkspaceResourceId'."
         }
+        & $AzureCli resource show --ids $AzureMonitorWorkspaceResourceId --output none
+        if ($LASTEXITCODE -ne 0) {
+            throw "Unable to resolve Azure Monitor workspace '$AzureMonitorWorkspaceResourceId'."
+        }
         & $AzureCli resource show --ids $NativeVmResourceId --output none
         if ($LASTEXITCODE -ne 0) {
             throw "Unable to resolve native Azure VM '$NativeVmResourceId'."
@@ -145,6 +167,7 @@ if ($MyInvocation.InvocationName -ne '.') {
 
         $DeploymentParameters = @(
             "logAnalyticsWorkspaceResourceId=$LogAnalyticsWorkspaceResourceId",
+            "azureMonitorWorkspaceResourceId=$AzureMonitorWorkspaceResourceId",
             "nativeVmResourceId=$NativeVmResourceId",
             "workbookDisplayName=$WorkbookDisplayName",
             'shouldDeployGrafana=false'

@@ -3,14 +3,14 @@
   "version": "Notebook/1.0",
   "isLocked": false,
   "fallbackResourceIds": [
-    "Azure Monitor"
+    "__AZURE_MONITOR_WORKSPACE_RESOURCE_ID__"
   ],
   "items": [
     {
       "type": 1,
       "name": "Overview",
       "content": {
-        "json": "# Azure VM Disk SKU Limits (free platform metrics)\n\nThrottling diagnosis for **Azure VMs** built entirely on free, built-in Azure Monitor platform metrics and Azure Resource Graph \u2014 no VM Insights, no Log Analytics ingestion, no agent. Start at the **Throttling diagnosis** band to tell at a glance whether throttling is coming from a single disk SKU limit or the VM SKU aggregate, then drill into the trend charts and provisioned-limit reference.\n\nArc-enabled servers and guest filesystem/capacity views are intentionally omitted here to keep this workbook cost-free; use the full VM Disk Observability workbook for those."
+        "json": "# Azure VM Disk SKU Limits (free metrics)\n\nThrottling diagnosis for **Azure VMs** uses built-in Azure Monitor platform metrics and Azure Resource Graph. The guest disk section uses the default no-charge OpenTelemetry metrics sent by Azure Monitor Agent to an Azure Monitor workspace. It does not require VM Insights or Log Analytics ingestion.\n\nStart at the **Throttling diagnosis** band to tell whether throttling comes from a single disk SKU limit or the VM SKU aggregate, then drill into the platform and guest disk sections. Azure Arc machines remain available in the full VM Disk Observability workbook."
       }
     },
     {
@@ -113,6 +113,34 @@
             "resourceType": "microsoft.resourcegraph/resources"
           }
         ]
+      }
+    },
+    {
+      "type": 9,
+      "name": "PrometheusWorkspaceParameter",
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "3f726ef3-21f8-46bf-8550-a60ce2d0f8d9",
+            "version": "KqlParameterItem/1.0",
+            "name": "PrometheusWorkspace",
+            "label": "Azure Monitor workspace",
+            "type": 5,
+            "isRequired": true,
+            "value": "__AZURE_MONITOR_WORKSPACE_RESOURCE_ID__",
+            "isHiddenWhenLocked": true,
+            "typeSettings": {
+              "additionalResourceOptions": [],
+              "showDefault": false,
+              "componentIdOnly": true,
+              "resourceTypeFilter": {
+                "microsoft.monitor/accounts": true
+              }
+            }
+          }
+        ],
+        "style": "above"
       }
     },
     {
@@ -700,6 +728,94 @@
             "splitByLimit": 50
           }
         ]
+      }
+    },
+    {
+      "type": 1,
+      "name": "GuestDiskHeading",
+      "content": {
+        "json": "## Guest disk performance and capacity (default no-charge metrics)\n\nThese views use `system.filesystem.usage`, `system.disk.operations`, `system.disk.io`, and `system.disk.operation_time` from the selected native Azure VM. Azure Policy can install Azure Monitor Agent and associate the regional metrics DCR automatically. The metric set has no additional ingestion charge; customized metrics can incur charges.\n\nThe capacity table reports decimal GB and used percentage, rounded to two decimal places. Performance charts use guest device names, exclude common pseudo devices, and remain separate from Azure data-disk LUNs."
+      }
+    },
+    {
+      "type": 3,
+      "name": "GuestFilesystemCapacity",
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "{\"version\":\"PrometheusQueryProvider/1.0\",\"queryText\":\"label_replace(round((sum by (\\\"microsoft.resourceid\\\", device, mountpoint) ({\\\"system.filesystem.usage\\\", \\\"microsoft.resourceid\\\"=~\\\"(?i)^{VirtualMachines}$\\\", state=~\\\"used|free|reserved\\\", mountpoint!~\\\"^/(snap|sys|proc|dev|run)($|/)\\\"}) / 1000000000), 0.01), \\\"stat\\\", \\\"Size (GB)\\\", \\\"device\\\", \\\".*\\\") or label_replace(round((100 * sum by (\\\"microsoft.resourceid\\\", device, mountpoint) ({\\\"system.filesystem.usage\\\", \\\"microsoft.resourceid\\\"=~\\\"(?i)^{VirtualMachines}$\\\", state=\\\"used\\\", mountpoint!~\\\"^/(snap|sys|proc|dev|run)($|/)\\\"}) / clamp_min(sum by (\\\"microsoft.resourceid\\\", device, mountpoint) ({\\\"system.filesystem.usage\\\", \\\"microsoft.resourceid\\\"=~\\\"(?i)^{VirtualMachines}$\\\", state=~\\\"used|free|reserved\\\", mountpoint!~\\\"^/(snap|sys|proc|dev|run)($|/)\\\"}), 1)), 0.01), \\\"stat\\\", \\\"Used (%)\\\", \\\"device\\\", \\\".*\\\")\",\"type\":\"query\"}",
+        "size": 0,
+        "title": "Guest filesystem capacity",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 16,
+        "resourceType": "microsoft.monitor/accounts",
+        "crossComponentResources": [
+          "{PrometheusWorkspace}"
+        ],
+        "visualization": "table",
+        "gridSettings": {
+          "filter": true,
+          "showExportToExcel": true,
+          "labelSettings": [
+            {
+              "columnId": "value",
+              "label": "Value (GB or %)"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": 3,
+      "name": "GuestDiskIops",
+      "customWidth": "33%",
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "{\"version\":\"PrometheusQueryProvider/1.0\",\"queryText\":\"sum by (device) ((sum by (\\\"microsoft.resourceid\\\", device) (rate({\\\"system.disk.operations\\\", \\\"microsoft.resourceid\\\"=~\\\"(?i)^{VirtualMachines}$\\\", device!~\\\"^(loop|sr|ram|fd)[0-9]+$\\\"}[5m]))) * on (\\\"microsoft.resourceid\\\", device) group_left () (count by (\\\"microsoft.resourceid\\\", device) (label_replace({\\\"system.filesystem.usage\\\", \\\"microsoft.resourceid\\\"=~\\\"(?i)^{VirtualMachines}$\\\", state=\\\"used\\\", mountpoint!~\\\"^/(snap|sys|proc|dev|run)($|/)\\\"}, \\\"device\\\", \\\"$1\\\", \\\"device\\\", \\\"^/dev/(.*)$\\\")) > bool -1))\",\"type\":\"query_range\"}",
+        "size": 0,
+        "title": "Guest IOPS by device",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 16,
+        "resourceType": "microsoft.monitor/accounts",
+        "crossComponentResources": [
+          "{PrometheusWorkspace}"
+        ],
+        "visualization": "timechart"
+      }
+    },
+    {
+      "type": 3,
+      "name": "GuestDiskThroughput",
+      "customWidth": "33%",
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "{\"version\":\"PrometheusQueryProvider/1.0\",\"queryText\":\"sum by (device) (((sum by (\\\"microsoft.resourceid\\\", device) (rate({\\\"system.disk.io\\\", \\\"microsoft.resourceid\\\"=~\\\"(?i)^{VirtualMachines}$\\\", device!~\\\"^(loop|sr|ram|fd)[0-9]+$\\\"}[5m]))) / 1048576) * on (\\\"microsoft.resourceid\\\", device) group_left () (count by (\\\"microsoft.resourceid\\\", device) (label_replace({\\\"system.filesystem.usage\\\", \\\"microsoft.resourceid\\\"=~\\\"(?i)^{VirtualMachines}$\\\", state=\\\"used\\\", mountpoint!~\\\"^/(snap|sys|proc|dev|run)($|/)\\\"}, \\\"device\\\", \\\"$1\\\", \\\"device\\\", \\\"^/dev/(.*)$\\\")) > bool -1))\",\"type\":\"query_range\"}",
+        "size": 0,
+        "title": "Guest throughput by device (MiB/s)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 16,
+        "resourceType": "microsoft.monitor/accounts",
+        "crossComponentResources": [
+          "{PrometheusWorkspace}"
+        ],
+        "visualization": "timechart"
+      }
+    },
+    {
+      "type": 3,
+      "name": "GuestDiskLatency",
+      "customWidth": "33%",
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "{\"version\":\"PrometheusQueryProvider/1.0\",\"queryText\":\"sum by (device) (((1000 * sum by (\\\"microsoft.resourceid\\\", device) (rate({\\\"system.disk.operation_time\\\", \\\"microsoft.resourceid\\\"=~\\\"(?i)^{VirtualMachines}$\\\", device!~\\\"^(loop|sr|ram|fd)[0-9]+$\\\"}[5m])) / clamp_min(sum by (\\\"microsoft.resourceid\\\", device) (rate({\\\"system.disk.operations\\\", \\\"microsoft.resourceid\\\"=~\\\"(?i)^{VirtualMachines}$\\\", device!~\\\"^(loop|sr|ram|fd)[0-9]+$\\\"}[5m])), 0.000000001)) * on (\\\"microsoft.resourceid\\\", device) group_left () (count by (\\\"microsoft.resourceid\\\", device) (label_replace({\\\"system.filesystem.usage\\\", \\\"microsoft.resourceid\\\"=~\\\"(?i)^{VirtualMachines}$\\\", state=\\\"used\\\", mountpoint!~\\\"^/(snap|sys|proc|dev|run)($|/)\\\"}, \\\"device\\\", \\\"$1\\\", \\\"device\\\", \\\"^/dev/(.*)$\\\")) > bool -1)))\",\"type\":\"query_range\"}",
+        "size": 0,
+        "title": "Guest latency by device (ms)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 16,
+        "resourceType": "microsoft.monitor/accounts",
+        "crossComponentResources": [
+          "{PrometheusWorkspace}"
+        ],
+        "visualization": "timechart"
       }
     }
   ]

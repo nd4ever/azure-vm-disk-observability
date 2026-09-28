@@ -7,9 +7,9 @@
 .SYNOPSIS
     Imports the VM Disk Observability dashboard into Azure Managed Grafana.
 .DESCRIPTION
-    Resolves resource properties and the Azure Monitor datasource UID, replaces
-    deployment placeholders, and imports the dashboard by using the Azure Managed
-    Grafana CLI extension.
+    Resolves resource properties, verifies the Azure Monitor and Prometheus
+    datasources, replaces deployment placeholders, and imports the dashboard by
+    using the Azure Managed Grafana CLI extension.
 .PARAMETER TenantId
     Microsoft Entra tenant containing all referenced subscriptions.
 .PARAMETER GrafanaResourceId
@@ -23,8 +23,8 @@
 .EXAMPLE
     ./scripts/Import-GrafanaDashboard.ps1 -TenantId <tenant> -GrafanaResourceId <id> -WorkspaceResourceId <id> -NativeVmResourceId <id>
 .NOTES
-    Requires the Azure CLI amg extension and a Grafana role that can read datasources
-    and create dashboards, such as Grafana Admin.
+    Requires the Azure CLI amg and resource-graph extensions and a Grafana role
+    that can read datasources and create dashboards, such as Grafana Admin.
 #>
 
 [CmdletBinding()]
@@ -100,6 +100,10 @@ if ($MyInvocation.InvocationName -ne '.') {
         if ($LASTEXITCODE -ne 0) {
             throw "The Azure CLI amg extension is required. Install it with 'az extension add --name amg'."
         }
+        & $AzureCli extension show --name resource-graph --output none 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            throw "The Azure CLI resource-graph extension is required. Install it with 'az extension add --name resource-graph'."
+        }
 
         $GrafanaParts = ConvertFrom-AzureResourceId -ResourceId $GrafanaResourceId
         $WorkspaceParts = ConvertFrom-AzureResourceId -ResourceId $WorkspaceResourceId
@@ -149,18 +153,32 @@ if ($MyInvocation.InvocationName -ne '.') {
             throw "Unable to resolve native Azure VM '$NativeVmResourceId'."
         }
 
-        $EnabledSubscriptionIds = @(
-            & $AzureCli account list --query "[?state=='Enabled'].id" --output tsv |
-                Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
-                ForEach-Object { $_.Trim() }
-        )
-        if ($EnabledSubscriptionIds.Count -eq 0) {
-            throw 'Unable to enumerate accessible Azure subscriptions for the VM selector.'
+        $HybridInventorySubscriptionQuery = "Resources | where type in~ ('microsoft.compute/virtualmachines', 'microsoft.hybridcompute/machines') | distinct subscriptionId | project subscriptionId"
+        $HybridInventorySubscriptionResultJson = & $AzureCli graph query `
+            -q $HybridInventorySubscriptionQuery `
+            --first 1000 `
+            --output json
+        if ($LASTEXITCODE -ne 0) {
+            throw 'Unable to discover subscriptions containing Azure Arc machines or native Azure VMs.'
         }
-        $AllSubscriptionIdsJson = ($EnabledSubscriptionIds | ForEach-Object { '"' + $_ + '"' }) -join ','
+        $HybridInventorySubscriptionResult = $HybridInventorySubscriptionResultJson | ConvertFrom-Json
+        $HybridInventorySubscriptionIds = @(
+            $HybridInventorySubscriptionResult.data.subscriptionId |
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+                ForEach-Object { $_.Trim() } |
+                Sort-Object -Unique
+        )
+        if ($HybridInventorySubscriptionIds.Count -eq 0) {
+            throw 'No accessible Azure Arc machines or native Azure VMs were found for the hybrid inventory.'
+        }
+        $HybridInventorySubscriptionIdsJson = (
+            $HybridInventorySubscriptionIds |
+                ForEach-Object { '"' + $_ + '"' }
+        ) -join ','
 
         $GrafanaEndpoint = $GrafanaResource.properties.endpoint.TrimEnd('/')
         $AzureMonitorDatasource = $null
+        $PrometheusDatasource = $null
         $ReadinessDeadline = [DateTimeOffset]::UtcNow.AddMinutes(10)
         do {
             $DatasourceJson = & $AzureCli grafana data-source list `
@@ -170,8 +188,13 @@ if ($MyInvocation.InvocationName -ne '.') {
                 --output json 2>$null
 
             if ($LASTEXITCODE -eq 0) {
-                $AzureMonitorDatasource = @($DatasourceJson | ConvertFrom-Json) |
+                $Datasources = @($DatasourceJson | ConvertFrom-Json)
+                $AzureMonitorDatasource = $Datasources |
                     Where-Object { $_.type -eq 'grafana-azure-monitor-datasource' } |
+                    Sort-Object -Property isDefault -Descending |
+                    Select-Object -First 1
+                $PrometheusDatasource = $Datasources |
+                    Where-Object { $_.type -eq 'prometheus' } |
                     Sort-Object -Property isDefault -Descending |
                     Select-Object -First 1
                 if ($null -ne $AzureMonitorDatasource) {
@@ -186,6 +209,9 @@ if ($MyInvocation.InvocationName -ne '.') {
 
         if ($null -eq $AzureMonitorDatasource) {
             throw 'Azure Managed Grafana did not expose an Azure Monitor datasource within 10 minutes. Verify Grafana access and datasource configuration.'
+        }
+        if ($null -eq $PrometheusDatasource) {
+            Write-Warning 'Azure Managed Grafana has no Prometheus datasource. The dashboard will import, but its guest filesystem table remains unavailable until an Azure Monitor workspace is linked to the Grafana instance.'
         }
 
         $DashboardJson = Get-Content -Path $DashboardFile -Raw
@@ -209,7 +235,10 @@ if ($MyInvocation.InvocationName -ne '.') {
         foreach ($Replacement in $Replacements.GetEnumerator()) {
             $DashboardJson = $DashboardJson.Replace($Replacement.Key, $Replacement.Value)
         }
-        $DashboardJson = $DashboardJson.Replace('"__ALL_SUBSCRIPTION_IDS__"', $AllSubscriptionIdsJson)
+        $DashboardJson = $DashboardJson.Replace(
+            '"__HYBRID_INVENTORY_SUBSCRIPTION_IDS__"',
+            $HybridInventorySubscriptionIdsJson
+        )
 
         $DashboardJson | ConvertFrom-Json -Depth 100 | Out-Null
         $RenderedDashboardPath = Join-Path ([System.IO.Path]::GetTempPath()) "vm-disk-observability-$([guid]::NewGuid()).json"

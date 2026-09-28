@@ -1,4 +1,6 @@
 #!/usr/bin/env pwsh
+# Copyright (c) Microsoft Corporation.
+# SPDX-License-Identifier: MIT
 #Requires -Version 7.0
 
 <#
@@ -18,6 +20,12 @@
     Azure region used when the target resource group must be created.
 .PARAMETER LogAnalyticsWorkspaceResourceId
     Resource ID of the Log Analytics workspace containing VM Insights data.
+.PARAMETER AzureMonitorWorkspaceResourceId
+    Resource ID of the Azure Monitor workspace containing default OpenTelemetry guest metrics.
+.PARAMETER FreeGuestMetricsDcrResourceId
+    Resource ID of the regional data collection rule for default OpenTelemetry guest metrics.
+.PARAMETER ManagementGroupName
+    Management group where the free guest metrics initiative is defined and assigned.
 .PARAMETER NativeVmResourceId
     Resource ID of the native Azure VM used for per-LUN platform metric charts.
 .PARAMETER AlertEmailAddress
@@ -45,10 +53,15 @@
     Deploys the free, Azure VM-only Azure Monitor Workbook. Acts as an artifact selector.
 .PARAMETER Alerts
     Deploys the email Action Group and disk/VM SKU metric alerts. Acts as an artifact selector.
+.PARAMETER FreeGuestMetrics
+    Deploys the management-group policy and remediates supported VMs. Acts as an artifact selector.
+.PARAMETER SkipPolicyRemediation
+    Deploys the free guest metrics policy without starting remediation tasks.
 
-    When no artifact selectors are supplied, all four artifacts are deployed.
-    Supply any combination to deploy only those artifacts. -Free alone does not require a
-    Log Analytics workspace.
+    When no artifact selectors are supplied, the Grafana dashboard, both workbooks,
+    and alerts are deployed. Management-group policy deployment is always opt-in
+    through -FreeGuestMetrics. Supply any combination to deploy only those artifacts.
+    -Free alone does not require a Log Analytics workspace.
 .EXAMPLE
     ./scripts/Deploy-Solution.ps1 -Free
 .EXAMPLE
@@ -77,6 +90,15 @@ param(
 
     [Parameter(Mandatory = $false)]
     [string]$LogAnalyticsWorkspaceResourceId,
+
+    [Parameter(Mandatory = $false)]
+    [string]$AzureMonitorWorkspaceResourceId,
+
+    [Parameter(Mandatory = $false)]
+    [string]$FreeGuestMetricsDcrResourceId,
+
+    [Parameter(Mandatory = $false)]
+    [string]$ManagementGroupName,
 
     [Parameter(Mandatory = $false)]
     [string]$NativeVmResourceId,
@@ -118,7 +140,13 @@ param(
     [switch]$Free,
 
     [Parameter(Mandatory = $false)]
-    [switch]$Alerts
+    [switch]$Alerts,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$FreeGuestMetrics,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$SkipPolicyRemediation
 )
 
 $ErrorActionPreference = 'Stop'
@@ -332,6 +360,7 @@ if ($MyInvocation.InvocationName -ne '.') {
         $ProjectRoot = Split-Path -Path $PSScriptRoot -Parent
         $TemplateFile = Join-Path $ProjectRoot 'infra/main.bicep'
         $ImportScript = Join-Path $PSScriptRoot 'Import-GrafanaDashboard.ps1'
+        $PolicyScript = Join-Path $PSScriptRoot 'Deploy-FreeGuestMetricsPolicy.ps1'
 
         $DefaultAccount = Invoke-AzureCliJson `
             -Arguments @('account', 'show', '--output', 'json') `
@@ -351,37 +380,64 @@ if ($MyInvocation.InvocationName -ne '.') {
             throw "Unable to select subscription '$SubscriptionId'."
         }
 
-        $ResourceGroupName = Read-DeploymentValue -Value $ResourceGroupName -Prompt 'Deployment resource group name' -DefaultValue 'vm-disk-observability-rg'
-        $ResourceGroupJson = & $script:AzureCli group show `
-            --subscription $SubscriptionId `
-            --name $ResourceGroupName `
-            --output json 2>$null
-        if ($LASTEXITCODE -eq 0) {
-            $ResourceGroup = $ResourceGroupJson | ConvertFrom-Json
-            $Location = $ResourceGroup.location
-        }
-        else {
-            $Location = Read-DeploymentValue -Value $Location -Prompt 'Azure region for the new resource group'
-            $ResourceGroup = Invoke-AzureCliJson `
-                -Arguments @('group', 'create', '--subscription', $SubscriptionId, '--name', $ResourceGroupName, '--location', $Location, '--output', 'json') `
-                -FailureMessage "Unable to create resource group '$ResourceGroupName'."
-        }
-
-        $SelectedArtifacts = $Grafana.IsPresent -or $VMInsights.IsPresent -or $Free.IsPresent -or $Alerts.IsPresent
+        $SelectedArtifacts = (
+            $Grafana.IsPresent -or
+            $VMInsights.IsPresent -or
+            $Free.IsPresent -or
+            $Alerts.IsPresent -or
+            $FreeGuestMetrics.IsPresent
+        )
         $DeployGrafana = if ($SelectedArtifacts) { $Grafana.IsPresent } else { $true }
         $DeployVMInsights = if ($SelectedArtifacts) { $VMInsights.IsPresent } else { $true }
         $DeployFree = if ($SelectedArtifacts) { $Free.IsPresent } else { $true }
         $DeployAlerts = if ($SelectedArtifacts) { $Alerts.IsPresent } else { $true }
-        $NeedWorkspace = $DeployVMInsights -or $DeployGrafana
+        $DeployFreeGuestMetrics = if ($SelectedArtifacts) { $FreeGuestMetrics.IsPresent } else { $false }
+        $NeedResourceGroup = $DeployGrafana -or $DeployVMInsights -or $DeployFree -or $DeployAlerts
 
-        if ($NeedWorkspace) {
+        if ($NeedResourceGroup) {
+            $ResourceGroupName = Read-DeploymentValue -Value $ResourceGroupName -Prompt 'Deployment resource group name' -DefaultValue 'vm-disk-observability-rg'
+            $ResourceGroupJson = & $script:AzureCli group show `
+                --subscription $SubscriptionId `
+                --name $ResourceGroupName `
+                --output json 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                $ResourceGroup = $ResourceGroupJson | ConvertFrom-Json
+                $Location = $ResourceGroup.location
+            }
+            else {
+                $Location = Read-DeploymentValue -Value $Location -Prompt 'Azure region for the new resource group'
+                $ResourceGroup = Invoke-AzureCliJson `
+                    -Arguments @('group', 'create', '--subscription', $SubscriptionId, '--name', $ResourceGroupName, '--location', $Location, '--output', 'json') `
+                    -FailureMessage "Unable to create resource group '$ResourceGroupName'."
+            }
+        }
+
+        $NeedLogAnalyticsWorkspace = $DeployVMInsights -or $DeployGrafana
+        $NeedNativeVm = $DeployGrafana -or $DeployVMInsights -or $DeployFree -or $DeployAlerts
+
+        if ($NeedLogAnalyticsWorkspace) {
             $LogAnalyticsWorkspaceResourceId = Read-DeploymentValue `
                 -Value $LogAnalyticsWorkspaceResourceId `
                 -Prompt 'Log Analytics workspace resource ID'
         }
-        $NativeVmResourceId = Read-DeploymentValue `
-            -Value $NativeVmResourceId `
-            -Prompt 'Native Azure VM resource ID'
+        if ($DeployFree) {
+            $AzureMonitorWorkspaceResourceId = Read-DeploymentValue `
+                -Value $AzureMonitorWorkspaceResourceId `
+                -Prompt 'Azure Monitor workspace resource ID'
+        }
+        if ($DeployFreeGuestMetrics) {
+            $ManagementGroupName = Read-DeploymentValue `
+                -Value $ManagementGroupName `
+                -Prompt 'Management group name for free guest metrics policy'
+            $FreeGuestMetricsDcrResourceId = Read-DeploymentValue `
+                -Value $FreeGuestMetricsDcrResourceId `
+                -Prompt 'Free guest metrics data collection rule resource ID'
+        }
+        if ($NeedNativeVm) {
+            $NativeVmResourceId = Read-DeploymentValue `
+                -Value $NativeVmResourceId `
+                -Prompt 'Native Azure VM resource ID'
+        }
         if ($DeployAlerts) {
             $AlertEmailAddress = Read-DeploymentValue `
                 -Value $AlertEmailAddress `
@@ -391,18 +447,40 @@ if ($MyInvocation.InvocationName -ne '.') {
             }
         }
 
-        $NativeVmParts = ConvertFrom-AzureResourceId -ResourceId $NativeVmResourceId
-        if ($NativeVmParts.ProviderNamespace -ne 'Microsoft.Compute' -or $NativeVmParts.ResourceType -ne 'virtualMachines') {
-            throw "The supplied VM ID does not identify an Azure virtual machine."
+        $ReferencedSubscriptionIds = @()
+        if ($NeedNativeVm) {
+            $NativeVmParts = ConvertFrom-AzureResourceId -ResourceId $NativeVmResourceId
+            if ($NativeVmParts.ProviderNamespace -ne 'Microsoft.Compute' -or $NativeVmParts.ResourceType -ne 'virtualMachines') {
+                throw 'The supplied VM ID does not identify an Azure virtual machine.'
+            }
+            $ReferencedSubscriptionIds += $NativeVmParts.SubscriptionId
         }
-
-        $ReferencedSubscriptionIds = @($NativeVmParts.SubscriptionId)
         if (-not [string]::IsNullOrWhiteSpace($LogAnalyticsWorkspaceResourceId)) {
             $WorkspaceParts = ConvertFrom-AzureResourceId -ResourceId $LogAnalyticsWorkspaceResourceId
             if ($WorkspaceParts.ProviderNamespace -ne 'Microsoft.OperationalInsights' -or $WorkspaceParts.ResourceType -ne 'workspaces') {
-                throw "The supplied workspace ID does not identify a Log Analytics workspace."
+                throw 'The supplied workspace ID does not identify a Log Analytics workspace.'
             }
             $ReferencedSubscriptionIds += $WorkspaceParts.SubscriptionId
+        }
+        if (-not [string]::IsNullOrWhiteSpace($AzureMonitorWorkspaceResourceId)) {
+            $AzureMonitorWorkspaceParts = ConvertFrom-AzureResourceId -ResourceId $AzureMonitorWorkspaceResourceId
+            if (
+                $AzureMonitorWorkspaceParts.ProviderNamespace -ne 'Microsoft.Monitor' -or
+                $AzureMonitorWorkspaceParts.ResourceType -ne 'accounts'
+            ) {
+                throw 'The supplied Azure Monitor workspace ID does not identify a Microsoft.Monitor/accounts resource.'
+            }
+            $ReferencedSubscriptionIds += $AzureMonitorWorkspaceParts.SubscriptionId
+        }
+        if (-not [string]::IsNullOrWhiteSpace($FreeGuestMetricsDcrResourceId)) {
+            $FreeGuestMetricsDcrParts = ConvertFrom-AzureResourceId -ResourceId $FreeGuestMetricsDcrResourceId
+            if (
+                $FreeGuestMetricsDcrParts.ProviderNamespace -ne 'Microsoft.Insights' -or
+                $FreeGuestMetricsDcrParts.ResourceType -ne 'dataCollectionRules'
+            ) {
+                throw 'The supplied free guest metrics DCR ID does not identify a data collection rule.'
+            }
+            $ReferencedSubscriptionIds += $FreeGuestMetricsDcrParts.SubscriptionId
         }
 
         foreach ($ReferencedSubscriptionId in $ReferencedSubscriptionIds | Select-Object -Unique) {
@@ -419,9 +497,57 @@ if ($MyInvocation.InvocationName -ne '.') {
                 -Arguments @('resource', 'show', '--ids', $LogAnalyticsWorkspaceResourceId, '--output', 'json') `
                 -FailureMessage "Unable to resolve Log Analytics workspace '$LogAnalyticsWorkspaceResourceId'." | Out-Null
         }
-        Invoke-AzureCliJson `
-            -Arguments @('resource', 'show', '--ids', $NativeVmResourceId, '--output', 'json') `
-            -FailureMessage "Unable to resolve native Azure VM '$NativeVmResourceId'." | Out-Null
+        if (-not [string]::IsNullOrWhiteSpace($AzureMonitorWorkspaceResourceId)) {
+            Invoke-AzureCliJson `
+                -Arguments @('resource', 'show', '--ids', $AzureMonitorWorkspaceResourceId, '--output', 'json') `
+                -FailureMessage "Unable to resolve Azure Monitor workspace '$AzureMonitorWorkspaceResourceId'." | Out-Null
+        }
+        if (-not [string]::IsNullOrWhiteSpace($FreeGuestMetricsDcrResourceId)) {
+            $FreeGuestMetricsDcr = Invoke-AzureCliJson `
+                -Arguments @('resource', 'show', '--ids', $FreeGuestMetricsDcrResourceId, '--output', 'json') `
+                -FailureMessage "Unable to resolve free guest metrics DCR '$FreeGuestMetricsDcrResourceId'."
+            if (-not [string]::IsNullOrWhiteSpace([string]$FreeGuestMetricsDcr.kind)) {
+                throw "The free guest metrics DCR must support both Windows and Linux, but its kind is '$($FreeGuestMetricsDcr.kind)'."
+            }
+
+            $ExpectedGuestMetricCounters = @(
+                'system.filesystem.usage'
+                'system.disk.io'
+                'system.disk.operations'
+                'system.disk.operation_time'
+            )
+            $ConfiguredGuestMetricCounters = @(
+                $FreeGuestMetricsDcr.properties.dataSources.performanceCountersOTel |
+                    ForEach-Object { $_.counterSpecifiers } |
+                    ForEach-Object { [string]$_ } |
+                    Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+            )
+            $MissingGuestMetricCounters = @(
+                $ExpectedGuestMetricCounters |
+                    Where-Object { $ConfiguredGuestMetricCounters -inotcontains $_ }
+            )
+            if ($MissingGuestMetricCounters.Count -gt 0) {
+                throw "The free guest metrics DCR is missing required OpenTelemetry counters: $($MissingGuestMetricCounters -join ', ')."
+            }
+
+            if (-not [string]::IsNullOrWhiteSpace($AzureMonitorWorkspaceResourceId)) {
+                $NormalizedAzureMonitorWorkspaceResourceId = $AzureMonitorWorkspaceResourceId.TrimEnd('/')
+                $MonitoringAccountResourceIds = @(
+                    $FreeGuestMetricsDcr.properties.destinations.monitoringAccounts |
+                        ForEach-Object { [string]$_.accountResourceId } |
+                        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+                        ForEach-Object { $_.TrimEnd('/') }
+                )
+                if ($MonitoringAccountResourceIds -inotcontains $NormalizedAzureMonitorWorkspaceResourceId) {
+                    throw "The free guest metrics DCR does not send metrics to Azure Monitor workspace '$AzureMonitorWorkspaceResourceId'."
+                }
+            }
+        }
+        if ($NeedNativeVm) {
+            Invoke-AzureCliJson `
+                -Arguments @('resource', 'show', '--ids', $NativeVmResourceId, '--output', 'json') `
+                -FailureMessage "Unable to resolve native Azure VM '$NativeVmResourceId'." | Out-Null
+        }
 
         $ShouldDeployGrafana = $false
         $ShouldGrantExplicitGrafanaAdmin = $false
@@ -510,6 +636,7 @@ if ($MyInvocation.InvocationName -ne '.') {
             $DeploymentParameters = @(
                 "location=$Location",
                 "logAnalyticsWorkspaceResourceId=$LogAnalyticsWorkspaceResourceId",
+                "azureMonitorWorkspaceResourceId=$AzureMonitorWorkspaceResourceId",
                 "nativeVmResourceId=$NativeVmResourceId",
                 "workbookDisplayName=$WorkbookDisplayName",
                 "shouldDeployWorkbook=$($DeployVMInsights.ToString().ToLowerInvariant())",
@@ -614,6 +741,19 @@ if ($MyInvocation.InvocationName -ne '.') {
             }
         }
 
+        if ($DeployFreeGuestMetrics) {
+            $PolicyDeploymentParameters = @{
+                ManagementGroupName = $ManagementGroupName
+                TenantId = $TenantId
+                DcrResourceId = $FreeGuestMetricsDcrResourceId
+                StartRemediation = -not $SkipPolicyRemediation.IsPresent
+            }
+            & $PolicyScript @PolicyDeploymentParameters
+            if ($LASTEXITCODE -ne 0) {
+                throw 'The free guest metrics policy deployment failed.'
+            }
+        }
+
         if ($DeployVMInsights -and $Deployment) {
             Write-Information "VM Insights workbook deployed: $($Deployment.properties.outputs.workbookResourceId.value)" -InformationAction Continue
         }
@@ -626,6 +766,9 @@ if ($MyInvocation.InvocationName -ne '.') {
         }
         if ($DeployGrafana) {
             Write-Information "Azure Managed Grafana: $GrafanaResourceId" -InformationAction Continue
+        }
+        if ($DeployFreeGuestMetrics) {
+            Write-Information "Free guest metrics policy deployed at management group: $ManagementGroupName" -InformationAction Continue
         }
     }
     catch {

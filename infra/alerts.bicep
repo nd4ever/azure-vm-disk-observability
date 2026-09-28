@@ -32,32 +32,54 @@ var alertDefinitions = [
   {
     suffix: 'data-disk-iops-100pct'
     metricName: 'Data Disk IOPS Consumed Percentage'
-    description: 'A data disk reached 100% of its provisioned IOPS limit during the fifteen-minute evaluation window.'
+    description: 'A data disk LUN reached ${alertThreshold}% of its provisioned IOPS limit during the fifteen-minute evaluation window. The alert context identifies the affected LUN.'
+    dimensions: [
+      {
+        name: 'LUN'
+        operator: 'Include'
+        values: [
+          '*'
+        ]
+      }
+    ]
   }
   {
     suffix: 'data-disk-bandwidth-100pct'
     metricName: 'Data Disk Bandwidth Consumed Percentage'
-    description: 'A data disk reached 100% of its provisioned bandwidth limit during the fifteen-minute evaluation window.'
+    description: 'A data disk LUN reached ${alertThreshold}% of its provisioned bandwidth limit during the fifteen-minute evaluation window. The alert context identifies the affected LUN.'
+    dimensions: [
+      {
+        name: 'LUN'
+        operator: 'Include'
+        values: [
+          '*'
+        ]
+      }
+    ]
   }
   {
     suffix: 'vm-cached-iops-100pct'
     metricName: 'VM Cached IOPS Consumed Percentage'
-    description: 'The VM reached 100% of its cached IOPS SKU limit during the fifteen-minute evaluation window.'
+    description: 'The VM reached ${alertThreshold}% of its cached IOPS SKU limit during the fifteen-minute evaluation window.'
+    dimensions: []
   }
   {
     suffix: 'vm-uncached-iops-100pct'
     metricName: 'VM Uncached IOPS Consumed Percentage'
-    description: 'The VM reached 100% of its uncached IOPS SKU limit during the fifteen-minute evaluation window.'
+    description: 'The VM reached ${alertThreshold}% of its uncached IOPS SKU limit during the fifteen-minute evaluation window.'
+    dimensions: []
   }
   {
     suffix: 'vm-cached-bandwidth-100pct'
     metricName: 'VM Cached Bandwidth Consumed Percentage'
-    description: 'The VM reached 100% of its cached bandwidth SKU limit during the fifteen-minute evaluation window.'
+    description: 'The VM reached ${alertThreshold}% of its cached bandwidth SKU limit during the fifteen-minute evaluation window.'
+    dimensions: []
   }
   {
     suffix: 'vm-uncached-bandwidth-100pct'
     metricName: 'VM Uncached Bandwidth Consumed Percentage'
-    description: 'The VM reached 100% of its uncached bandwidth SKU limit during the fifteen-minute evaluation window.'
+    description: 'The VM reached ${alertThreshold}% of its uncached bandwidth SKU limit during the fifteen-minute evaluation window.'
+    dimensions: []
   }
 ]
 
@@ -93,7 +115,7 @@ resource metricAlerts 'Microsoft.Insights/metricAlerts@2018-03-01' = [for defini
         {
           name: replace(definition.suffix, '-', '_')
           criterionType: 'StaticThresholdCriterion'
-          dimensions: []
+          dimensions: definition.dimensions
           metricName: definition.metricName
           metricNamespace: metricNamespace
           operator: 'GreaterThanOrEqual'

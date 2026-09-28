@@ -6,6 +6,7 @@
     "validate": "pwsh -NoProfile -File ./scripts/Test-Project.ps1",
     "validate:live": "pwsh -NoProfile -File ./scripts/Test-Project.ps1 -Live",
     "deploy": "pwsh -NoProfile -File ./scripts/Deploy-Solution.ps1",
+    "deploy:free-policy": "pwsh -NoProfile -File ./scripts/Deploy-FreeGuestMetricsPolicy.ps1",
     "deploy:workbook": "pwsh -NoProfile -File ./scripts/Deploy-Workbook.ps1",
     "import:grafana": "pwsh -NoProfile -File ./scripts/Import-GrafanaDashboard.ps1"
   }

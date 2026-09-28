@@ -497,7 +497,7 @@
         "x": 0,
         "y": 15,
         "w": 12,
-        "h": 8
+        "h": 12
       },
       "id": 8,
       "options": {
@@ -507,8 +507,9 @@
             "max"
           ],
           "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "right",
+          "showLegend": true,
+          "width": 250
         },
         "tooltip": {
           "mode": "multi",
@@ -579,7 +580,7 @@
         "x": 12,
         "y": 15,
         "w": 12,
-        "h": 8
+        "h": 12
       },
       "id": 9,
       "options": {
@@ -589,8 +590,9 @@
             "max"
           ],
           "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "right",
+          "showLegend": true,
+          "width": 250
         },
         "tooltip": {
           "mode": "multi",
@@ -659,9 +661,9 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 23,
+        "y": 27,
         "w": 12,
-        "h": 8
+        "h": 12
       },
       "id": 14,
       "options": {
@@ -671,8 +673,9 @@
             "max"
           ],
           "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "right",
+          "showLegend": true,
+          "width": 350
         },
         "tooltip": {
           "mode": "multi",
@@ -760,9 +763,9 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 23,
+        "y": 27,
         "w": 12,
-        "h": 8
+        "h": 12
       },
       "id": 15,
       "options": {
@@ -772,8 +775,9 @@
             "max"
           ],
           "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "right",
+          "showLegend": true,
+          "width": 350
         },
         "tooltip": {
           "mode": "multi",
@@ -860,9 +864,9 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 31,
+        "y": 39,
         "w": 24,
-        "h": 8
+        "h": 12
       },
       "id": 10,
       "options": {
@@ -872,8 +876,9 @@
             "max"
           ],
           "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "right",
+          "showLegend": true,
+          "width": 250
         },
         "tooltip": {
           "mode": "multi",
@@ -924,10 +929,254 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${prom_ds}"
+      },
+      "description": "Guest filesystem capacity and disk performance for the selected native Azure VM. Uses the default OpenTelemetry guest metrics, which have no additional metric-ingestion charge. Requires Azure Monitor Agent metrics-based enhanced monitoring, an Azure Monitor workspace, and a connected Prometheus data source. Device-to-mount mapping might be incomplete for LVM, Storage Spaces, striped, multipath, or similar volume layouts.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Used (%)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 75
+                    },
+                    {
+                      "color": "red",
+                      "value": 90
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "gradient",
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/.*latency.*\\(ms\\)/i"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Size (GiB)"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^(VM|Device|Mount)$/"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 170
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/^(Size|Used|Avg|Peak)/"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 125
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 51,
+        "w": 24,
+        "h": 12
+      },
+      "id": 37,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Peak IOPS"
+          }
+        ]
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${prom_ds}"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "label_join(\r\n  (\r\n    label_replace(\r\n      max_over_time(\r\n        (\r\n          sum by (\"microsoft.resourceid\", device, mountpoint) (\r\n            label_replace({\"system.filesystem.usage\", \"microsoft.resourceid\"=\"/subscriptions/$subscription/resourcegroups/$resourceGroup/providers/microsoft.compute/virtualmachines/$nativeVm\", state=~\"used|free|reserved\", mountpoint!~\"^/(snap|sys|proc|dev|run)($|/)\"}, \"device\", \"$1\", \"device\", \"^/dev/(.*)$\")\r\n          ) / 1073741824\r\n        )[$__range:1m]\r\n      ),\r\n      \"stat\", \"SizeGiB\", \"device\", \".*\"\r\n    )\r\n    or\r\n    label_replace(\r\n      max_over_time(\r\n        (\r\n          100 *\r\n          sum by (\"microsoft.resourceid\", device, mountpoint) (\r\n            label_replace({\"system.filesystem.usage\", \"microsoft.resourceid\"=\"/subscriptions/$subscription/resourcegroups/$resourceGroup/providers/microsoft.compute/virtualmachines/$nativeVm\", state=\"used\", mountpoint!~\"^/(snap|sys|proc|dev|run)($|/)\"}, \"device\", \"$1\", \"device\", \"^/dev/(.*)$\")\r\n          )\r\n          /\r\n          sum by (\"microsoft.resourceid\", device, mountpoint) (\r\n            label_replace({\"system.filesystem.usage\", \"microsoft.resourceid\"=\"/subscriptions/$subscription/resourcegroups/$resourceGroup/providers/microsoft.compute/virtualmachines/$nativeVm\", state=~\"used|free|reserved\", mountpoint!~\"^/(snap|sys|proc|dev|run)($|/)\"}, \"device\", \"$1\", \"device\", \"^/dev/(.*)$\")\r\n          )\r\n        )[$__range:1m]\r\n      ),\r\n      \"stat\", \"UsedPercent\", \"device\", \".*\"\r\n    )\r\n    or\r\n    label_replace(\r\n      (\r\n        avg_over_time(\r\n          (\r\n            sum by (\"microsoft.resourceid\", device) (\r\n              irate({\"system.disk.operations\", \"microsoft.resourceid\"=\"/subscriptions/$subscription/resourcegroups/$resourceGroup/providers/microsoft.compute/virtualmachines/$nativeVm\"}[$__rate_interval])\r\n            )\r\n          )[$__range:1m]\r\n        )\r\n        * on (\"microsoft.resourceid\", device) group_right ()\r\n        (\r\n          count by (\"microsoft.resourceid\", device, mountpoint) (\r\n            label_replace({\"system.filesystem.usage\", \"microsoft.resourceid\"=\"/subscriptions/$subscription/resourcegroups/$resourceGroup/providers/microsoft.compute/virtualmachines/$nativeVm\", state=\"used\", mountpoint!~\"^/(snap|sys|proc|dev|run)($|/)\"}, \"device\", \"$1\", \"device\", \"^/dev/(.*)$\")\r\n          ) > bool -1\r\n        )\r\n      ),\r\n      \"stat\", \"AvgIOPS\", \"device\", \".*\"\r\n    )\r\n    or\r\n    label_replace(\r\n      (\r\n        max_over_time(\r\n          (\r\n            sum by (\"microsoft.resourceid\", device) (\r\n              irate({\"system.disk.operations\", \"microsoft.resourceid\"=\"/subscriptions/$subscription/resourcegroups/$resourceGroup/providers/microsoft.compute/virtualmachines/$nativeVm\"}[$__rate_interval])\r\n            )\r\n          )[$__range:1m]\r\n        )\r\n        * on (\"microsoft.resourceid\", device) group_right ()\r\n        (\r\n          count by (\"microsoft.resourceid\", device, mountpoint) (\r\n            label_replace({\"system.filesystem.usage\", \"microsoft.resourceid\"=\"/subscriptions/$subscription/resourcegroups/$resourceGroup/providers/microsoft.compute/virtualmachines/$nativeVm\", state=\"used\", mountpoint!~\"^/(snap|sys|proc|dev|run)($|/)\"}, \"device\", \"$1\", \"device\", \"^/dev/(.*)$\")\r\n          ) > bool -1\r\n        )\r\n      ),\r\n      \"stat\", \"PeakIOPS\", \"device\", \".*\"\r\n    )\r\n    or\r\n    label_replace(\r\n      (\r\n        avg_over_time(\r\n          (\r\n            sum by (\"microsoft.resourceid\", device) (\r\n              irate({\"system.disk.io\", \"microsoft.resourceid\"=\"/subscriptions/$subscription/resourcegroups/$resourceGroup/providers/microsoft.compute/virtualmachines/$nativeVm\"}[$__rate_interval])\r\n            ) / 1048576\r\n          )[$__range:1m]\r\n        )\r\n        * on (\"microsoft.resourceid\", device) group_right ()\r\n        (\r\n          count by (\"microsoft.resourceid\", device, mountpoint) (\r\n            label_replace({\"system.filesystem.usage\", \"microsoft.resourceid\"=\"/subscriptions/$subscription/resourcegroups/$resourceGroup/providers/microsoft.compute/virtualmachines/$nativeVm\", state=\"used\", mountpoint!~\"^/(snap|sys|proc|dev|run)($|/)\"}, \"device\", \"$1\", \"device\", \"^/dev/(.*)$\")\r\n          ) > bool -1\r\n        )\r\n      ),\r\n      \"stat\", \"AvgThroughputMBps\", \"device\", \".*\"\r\n    )\r\n    or\r\n    label_replace(\r\n      (\r\n        max_over_time(\r\n          (\r\n            sum by (\"microsoft.resourceid\", device) (\r\n              irate({\"system.disk.io\", \"microsoft.resourceid\"=\"/subscriptions/$subscription/resourcegroups/$resourceGroup/providers/microsoft.compute/virtualmachines/$nativeVm\"}[$__rate_interval])\r\n            ) / 1048576\r\n          )[$__range:1m]\r\n        )\r\n        * on (\"microsoft.resourceid\", device) group_right ()\r\n        (\r\n          count by (\"microsoft.resourceid\", device, mountpoint) (\r\n            label_replace({\"system.filesystem.usage\", \"microsoft.resourceid\"=\"/subscriptions/$subscription/resourcegroups/$resourceGroup/providers/microsoft.compute/virtualmachines/$nativeVm\", state=\"used\", mountpoint!~\"^/(snap|sys|proc|dev|run)($|/)\"}, \"device\", \"$1\", \"device\", \"^/dev/(.*)$\")\r\n          ) > bool -1\r\n        )\r\n      ),\r\n      \"stat\", \"PeakThroughputMBps\", \"device\", \".*\"\r\n    )\r\n    or\r\n    label_replace(\r\n      (\r\n        avg_over_time(\r\n          (\r\n            1000 *\r\n            sum by (\"microsoft.resourceid\", device) (\r\n              irate({\"system.disk.operation_time\", \"microsoft.resourceid\"=\"/subscriptions/$subscription/resourcegroups/$resourceGroup/providers/microsoft.compute/virtualmachines/$nativeVm\"}[$__rate_interval])\r\n            )\r\n            /\r\n            clamp_min(\r\n              sum by (\"microsoft.resourceid\", device) (\r\n                irate({\"system.disk.operations\", \"microsoft.resourceid\"=\"/subscriptions/$subscription/resourcegroups/$resourceGroup/providers/microsoft.compute/virtualmachines/$nativeVm\"}[$__rate_interval])\r\n              ),\r\n              0.000000001\r\n            )\r\n          )[$__range:1m]\r\n        )\r\n        * on (\"microsoft.resourceid\", device) group_right ()\r\n        (\r\n          count by (\"microsoft.resourceid\", device, mountpoint) (\r\n            label_replace({\"system.filesystem.usage\", \"microsoft.resourceid\"=\"/subscriptions/$subscription/resourcegroups/$resourceGroup/providers/microsoft.compute/virtualmachines/$nativeVm\", state=\"used\", mountpoint!~\"^/(snap|sys|proc|dev|run)($|/)\"}, \"device\", \"$1\", \"device\", \"^/dev/(.*)$\")\r\n          ) > bool -1\r\n        )\r\n      ),\r\n      \"stat\", \"AvgLatencyMs\", \"device\", \".*\"\r\n    )\r\n    or\r\n    label_replace(\r\n      (\r\n        max_over_time(\r\n          (\r\n            1000 *\r\n            sum by (\"microsoft.resourceid\", device) (\r\n              irate({\"system.disk.operation_time\", \"microsoft.resourceid\"=\"/subscriptions/$subscription/resourcegroups/$resourceGroup/providers/microsoft.compute/virtualmachines/$nativeVm\"}[$__rate_interval])\r\n            )\r\n            /\r\n            clamp_min(\r\n              sum by (\"microsoft.resourceid\", device) (\r\n                irate({\"system.disk.operations\", \"microsoft.resourceid\"=\"/subscriptions/$subscription/resourcegroups/$resourceGroup/providers/microsoft.compute/virtualmachines/$nativeVm\"}[$__rate_interval])\r\n              ),\r\n              0.000000001\r\n            )\r\n          )[$__range:1m]\r\n        )\r\n        * on (\"microsoft.resourceid\", device) group_right ()\r\n        (\r\n          count by (\"microsoft.resourceid\", device, mountpoint) (\r\n            label_replace({\"system.filesystem.usage\", \"microsoft.resourceid\"=\"/subscriptions/$subscription/resourcegroups/$resourceGroup/providers/microsoft.compute/virtualmachines/$nativeVm\", state=\"used\", mountpoint!~\"^/(snap|sys|proc|dev|run)($|/)\"}, \"device\", \"$1\", \"device\", \"^/dev/(.*)$\")\r\n          ) > bool -1\r\n        )\r\n      ),\r\n      \"stat\", \"PeakLatencyMs\", \"device\", \".*\"\r\n    )\r\n  ),\r\n  \"diskrow\", \" | \", \"microsoft.resourceid\", \"device\", \"mountpoint\"\r\n)",
+          "format": "table",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "Native Azure VM guest disk performance and capacity",
+      "transformations": [
+        {
+          "id": "groupingToMatrix",
+          "options": {
+            "columnField": "stat",
+            "rowField": "diskrow",
+            "valueField": "Value"
+          }
+        },
+        {
+          "id": "extractFields",
+          "options": {
+            "format": "regexp",
+            "regExp": "/(?<ResourceId>.*) \\| (?<Device>.*) \\| (?<Mount>.*)/",
+            "source": "diskrow\\stat"
+          }
+        },
+        {
+          "id": "extractFields",
+          "options": {
+            "format": "regexp",
+            "regExp": "/.*virtualmachines\\/(?<VM>.*)/",
+            "source": "ResourceId"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "diskrow\\stat": true,
+              "ResourceId": true
+            },
+            "includeByName": {},
+            "indexByName": {
+              "VM": 0,
+              "Device": 1,
+              "Mount": 2,
+              "SizeGiB": 3,
+              "UsedPercent": 4,
+              "AvgIOPS": 5,
+              "PeakIOPS": 6,
+              "AvgThroughputMBps": 7,
+              "PeakThroughputMBps": 8,
+              "AvgLatencyMs": 9,
+              "PeakLatencyMs": 10
+            },
+            "renameByName": {
+              "SizeGiB": "Size (GiB)",
+              "UsedPercent": "Used (%)",
+              "AvgIOPS": "Avg IOPS",
+              "PeakIOPS": "Peak IOPS",
+              "AvgThroughputMBps": "Avg throughput (MiB/s)",
+              "PeakThroughputMBps": "Peak throughput (MiB/s)",
+              "AvgLatencyMs": "Avg latency (ms)",
+              "PeakLatencyMs": "Peak latency (ms)"
+            }
+          }
+        },
+        {
+          "id": "sortBy",
+          "options": {
+            "fields": {},
+            "sort": [
+              {
+                "desc": true,
+                "field": "Peak IOPS"
+              }
+            ]
+          }
+        }
+      ],
+      "type": "table"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 39,
+        "y": 63,
         "w": 24,
         "h": 1
       },
@@ -955,7 +1204,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 40,
+        "y": 64,
         "w": 24,
         "h": 8
       },
@@ -1003,7 +1252,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 48,
+        "y": 72,
         "w": 24,
         "h": 8
       },
@@ -1061,7 +1310,7 @@
         "h": 4,
         "w": 12,
         "x": 0,
-        "y": 56
+        "y": 80
       },
       "id": 30,
       "options": {
@@ -1204,7 +1453,7 @@
         "h": 4,
         "w": 12,
         "x": 12,
-        "y": 56
+        "y": 80
       },
       "id": 31,
       "options": {
@@ -1342,10 +1591,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 12,
         "w": 12,
         "x": 0,
-        "y": 60
+        "y": 84
       },
       "id": 28,
       "options": {
@@ -1354,8 +1603,9 @@
             "max"
           ],
           "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "right",
+          "showLegend": true,
+          "width": 250
         },
         "tooltip": {
           "mode": "multi",
@@ -1466,10 +1716,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 12,
         "w": 12,
         "x": 12,
-        "y": 60
+        "y": 84
       },
       "id": 29,
       "options": {
@@ -1478,8 +1728,9 @@
             "max"
           ],
           "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "right",
+          "showLegend": true,
+          "width": 250
         },
         "tooltip": {
           "mode": "multi",
@@ -1569,7 +1820,7 @@
     {
       "gridPos": {
         "x": 0,
-        "y": 68,
+        "y": 96,
         "w": 24,
         "h": 4
       },
@@ -1593,7 +1844,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 72
+        "y": 100
       },
       "id": 32,
       "panels": [],
@@ -1624,10 +1875,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 12,
         "w": 12,
         "x": 0,
-        "y": 73
+        "y": 101
       },
       "id": 33,
       "options": {
@@ -1637,8 +1888,9 @@
             "max"
           ],
           "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "right",
+          "showLegend": true,
+          "width": 250
         },
         "tooltip": {
           "mode": "multi",
@@ -1712,10 +1964,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 12,
         "w": 12,
         "x": 12,
-        "y": 73
+        "y": 101
       },
       "id": 34,
       "options": {
@@ -1725,8 +1977,9 @@
             "max"
           ],
           "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "right",
+          "showLegend": true,
+          "width": 250
         },
         "tooltip": {
           "mode": "multi",
@@ -1800,10 +2053,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 12,
         "w": 12,
         "x": 0,
-        "y": 81
+        "y": 113
       },
       "id": 35,
       "options": {
@@ -1813,8 +2066,9 @@
             "max"
           ],
           "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "right",
+          "showLegend": true,
+          "width": 250
         },
         "tooltip": {
           "mode": "multi",
@@ -1888,10 +2142,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 12,
         "w": 12,
         "x": 12,
-        "y": 81
+        "y": 113
       },
       "id": 36,
       "options": {
@@ -1901,8 +2155,9 @@
             "max"
           ],
           "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "right",
+          "showLegend": true,
+          "width": 250
         },
         "tooltip": {
           "mode": "multi",
@@ -1956,7 +2211,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 89,
+        "y": 125,
         "w": 24,
         "h": 1
       },
@@ -1970,6 +2225,120 @@
         "type": "grafana-azure-monitor-datasource",
         "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
       },
+      "description": "Lists every Azure Arc-enabled server and native Azure VM visible to Grafana across all accessible subscriptions, even when guest disk telemetry is not configured. The disk panels below remain telemetry-source specific.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Name"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 180
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ResourceType"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Subscription"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 180
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ResourceGroup"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 160
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 126,
+        "w": 24,
+        "h": 8
+      },
+      "id": 38,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "ResourceType"
+          }
+        ]
+      },
+      "pluginVersion": "12.4.8",
+      "targets": [
+        {
+          "azureResourceGraph": {
+            "query": "Resources\n| where type in~ ('microsoft.compute/virtualmachines', 'microsoft.hybridcompute/machines')\n| join kind=leftouter (\n    ResourceContainers\n    | where type == 'microsoft.resources/subscriptions'\n    | project subscriptionId, Subscription = name\n) on subscriptionId\n| extend ResourceType = iff(type =~ 'microsoft.compute/virtualmachines', 'Azure VM', 'Azure Arc')\n| extend PowerState = case(ResourceType == 'Azure VM', replace_string(tostring(properties.extended.instanceView.powerState.code), 'PowerState/', ''), tostring(properties.status))\n| extend OsType = coalesce(tostring(properties.storageProfile.osDisk.osType), tostring(properties.osType))\n| extend VmSize = tostring(properties.hardwareProfile.vmSize)\n| project Name = name, ResourceType, Subscription, ResourceGroup = resourceGroup, Location = location, PowerState, OsType, VmSize\n| order by ResourceType asc, Name asc",
+            "resultFormat": "table"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Resource Graph",
+          "refId": "A",
+          "subscriptions": [
+            "__HYBRID_INVENTORY_SUBSCRIPTION_IDS__"
+          ]
+        }
+      ],
+      "title": "Azure Arc and native Azure VM resource inventory",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "description": "Guest disk performance and capacity from Log Analytics InsightsMetrics. Only machines that sent LogicalDisk records during the selected time range appear here; use the resource inventory above to see every Azure Arc server and native Azure VM.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -2036,7 +2405,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 90,
+        "y": 134,
         "w": 24,
         "h": 12
       },
@@ -2077,7 +2446,7 @@
           "subscriptions": []
         }
       ],
-      "title": "Per-disk performance and capacity",
+      "title": "Log Analytics guest disk performance and capacity",
       "type": "table"
     },
     {
@@ -2114,9 +2483,9 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 102,
+        "y": 146,
         "w": 12,
-        "h": 9
+        "h": 12
       },
       "id": 3,
       "options": {
@@ -2126,8 +2495,9 @@
             "max"
           ],
           "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "right",
+          "showLegend": true,
+          "width": 350
         },
         "tooltip": {
           "mode": "multi",
@@ -2189,9 +2559,9 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 102,
+        "y": 146,
         "w": 12,
-        "h": 9
+        "h": 12
       },
       "id": 4,
       "options": {
@@ -2201,8 +2571,9 @@
             "max"
           ],
           "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "right",
+          "showLegend": true,
+          "width": 350
         },
         "tooltip": {
           "mode": "multi",
@@ -2284,9 +2655,9 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 111,
+        "y": 158,
         "w": 12,
-        "h": 9
+        "h": 12
       },
       "id": 5,
       "options": {
@@ -2296,8 +2667,9 @@
             "max"
           ],
           "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "right",
+          "showLegend": true,
+          "width": 350
         },
         "tooltip": {
           "mode": "multi",
@@ -2380,9 +2752,9 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 111,
+        "y": 158,
         "w": 12,
-        "h": 9
+        "h": 12
       },
       "id": 6,
       "options": {
@@ -2392,8 +2764,9 @@
             "max"
           ],
           "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "right",
+          "showLegend": true,
+          "width": 350
         },
         "tooltip": {
           "mode": "multi",
@@ -2439,9 +2812,9 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 120,
+        "y": 170,
         "w": 12,
-        "h": 9
+        "h": 12
       },
       "id": 16,
       "options": {
@@ -2451,8 +2824,9 @@
             "max"
           ],
           "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "right",
+          "showLegend": true,
+          "width": 350
         },
         "tooltip": {
           "mode": "multi",
@@ -2498,9 +2872,9 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 120,
+        "y": 170,
         "w": 12,
-        "h": 9
+        "h": 12
       },
       "id": 17,
       "options": {
@@ -2510,8 +2884,9 @@
             "max"
           ],
           "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
+          "placement": "right",
+          "showLegend": true,
+          "width": 350
         },
         "tooltip": {
           "mode": "multi",
@@ -2550,6 +2925,16 @@
   ],
   "templating": {
     "list": [
+      {
+        "current": {},
+        "label": "Guest metrics data source",
+        "name": "prom_ds",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "type": "datasource"
+      },
       {
         "current": {},
         "datasource": {
