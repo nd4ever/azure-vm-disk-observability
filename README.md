@@ -1,11 +1,13 @@
 ---
 title: Azure VM Disk Observability
 description: Azure Workbook and Managed Grafana demo for per-disk VM performance and capacity
-ms.date: 2026-09-29
+ms.date: 2026-09-30
 ms.topic: tutorial
 ---
 
 ## Overview
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 This project demonstrates per-disk observability in two Azure-native experiences:
 
@@ -22,6 +24,20 @@ The deployment can also create six Azure Monitor metric alerts for the selected 
 Azure VM. They notify an email Action Group when any data-disk IOPS/bandwidth or VM
 cached/uncached IOPS/bandwidth consumed-percentage metric reaches 100%. Every notification
 identifies the VM. Data-disk notifications also identify the affected LUN.
+
+## Quick start
+
+Review the [prerequisites](#prerequisites), then clone, validate, and deploy the solution:
+
+```powershell
+git clone https://github.com/nd4ever/azure-vm-disk-observability.git
+Set-Location azure-vm-disk-observability
+npm run validate
+npm run deploy
+```
+
+The deployment prompts for environment-specific values and can reuse existing Azure
+Monitor, Log Analytics, and Azure Managed Grafana resources.
 
 ## Workbook editions
 
@@ -236,6 +252,11 @@ Deploy the workbook and Grafana dashboard:
 ```powershell
 npm run deploy
 ```
+
+> [!WARNING]
+> The free guest metrics option can assign Azure Policy and RBAC at management-group
+> scope. Review the requested permissions, deployment scope, and documented costs before
+> deployment. Test the solution in a non-production environment first.
 
 The command prompts for:
 
@@ -551,3 +572,14 @@ telemetry rather than zero latency.
 * [Azure Managed Grafana](https://learn.microsoft.com/azure/managed-grafana/overview)
 * [Azure Policy remediation](https://learn.microsoft.com/azure/governance/policy/how-to/remediate-resources)
 * [VM Insights performance](https://learn.microsoft.com/azure/azure-monitor/vm/vminsights-performance)
+
+## Support and feedback
+
+This repository is a community sample, not an official Microsoft product or support
+offering. Use the GitHub issue templates to report bugs or propose improvements. Review
+[CONTRIBUTING.md](CONTRIBUTING.md) before submitting a pull request, and follow
+[SECURITY.md](SECURITY.md) to report suspected vulnerabilities privately.
+
+## License
+
+This project is available under the [MIT License](LICENSE).

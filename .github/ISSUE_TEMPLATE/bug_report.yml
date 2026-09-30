@@ -1,0 +1,60 @@
+name: Bug report
+description: Report a reproducible problem with deployment, validation, or dashboards
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve Azure VM Disk Observability. Remove tenant,
+        subscription, resource, customer, and credential information before submitting.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Problem
+      description: Describe what happened and what you expected.
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Unified deployment
+        - Azure Monitor Workbook
+        - Azure Managed Grafana dashboard
+        - Alerts
+        - Free guest metrics policy
+        - KQL queries
+        - Validation
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Provide the smallest reproducible sequence with sensitive values removed.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized diagnostics
+      description: Include relevant error output and validation results.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Provide the release, tag, or commit SHA you used.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Submission checks
+      options:
+        - label: I removed sensitive and customer-specific information.
+          required: true
+        - label: I searched existing issues for the same problem.
+          required: true
