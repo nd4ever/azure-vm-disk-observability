@@ -21,11 +21,24 @@
 .PARAMETER LogAnalyticsWorkspaceResourceId
     Resource ID of the Log Analytics workspace containing VM Insights data.
 .PARAMETER AzureMonitorWorkspaceResourceId
-    Resource ID of the Azure Monitor workspace containing default OpenTelemetry guest metrics.
+    Optional resource ID of an existing Azure Monitor workspace containing default
+    OpenTelemetry guest metrics. The deployment creates one when this is omitted.
+.PARAMETER AzureMonitorWorkspaceName
+    Name of the Azure Monitor workspace to create when a resource ID is not supplied.
 .PARAMETER FreeGuestMetricsDcrResourceId
-    Resource ID of the regional data collection rule for default OpenTelemetry guest metrics.
+    Optional resource ID of an existing regional data collection rule for default
+    OpenTelemetry guest metrics. The deployment creates one when this is omitted.
+.PARAMETER FreeGuestMetricsDcrName
+    Name of the guest metrics data collection rule to create.
+.PARAMETER GuestMetricsLocation
+    Region for the Azure Monitor workspace and guest metrics data collection rule.
+    Defaults to the selected native VM region.
 .PARAMETER ManagementGroupName
     Management group where the free guest metrics initiative is defined and assigned.
+.PARAMETER FreeGuestMetricsAssignmentName
+    Optional management-group policy assignment name. Use a distinct value for each region.
+.PARAMETER FreeGuestMetricsAssignmentDisplayName
+    Optional display name for the regional management-group policy assignment.
 .PARAMETER NativeVmResourceId
     Resource ID of the native Azure VM used for per-LUN platform metric charts.
 .PARAMETER AlertEmailAddress
@@ -95,10 +108,27 @@ param(
     [string]$AzureMonitorWorkspaceResourceId,
 
     [Parameter(Mandatory = $false)]
+    [string]$AzureMonitorWorkspaceName,
+
+    [Parameter(Mandatory = $false)]
     [string]$FreeGuestMetricsDcrResourceId,
 
     [Parameter(Mandatory = $false)]
+    [string]$FreeGuestMetricsDcrName,
+
+    [Parameter(Mandatory = $false)]
+    [string]$GuestMetricsLocation,
+
+    [Parameter(Mandatory = $false)]
     [string]$ManagementGroupName,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateLength(1, 24)]
+    [string]$FreeGuestMetricsAssignmentName,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateLength(1, 128)]
+    [string]$FreeGuestMetricsAssignmentDisplayName,
 
     [Parameter(Mandatory = $false)]
     [string]$NativeVmResourceId,
@@ -229,6 +259,24 @@ function ConvertFrom-AzureResourceId {
     }
 }
 
+function ConvertTo-NormalizedLocation {
+    <#
+    .SYNOPSIS
+        Normalizes an Azure region for comparison.
+    .OUTPUTS
+        [string] The lower-case Azure region without spaces.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Value
+    )
+
+    return ($Value -replace '\s', '').ToLowerInvariant()
+}
+
 function Invoke-AzureCliJson {
     <#
     .SYNOPSIS
@@ -257,6 +305,159 @@ function Invoke-AzureCliJson {
     }
 
     return $CommandOutput | ConvertFrom-Json
+}
+
+function Ensure-AzureProvider {
+    <#
+    .SYNOPSIS
+        Ensures that an Azure resource provider is registered.
+    .OUTPUTS
+        None.
+    #>
+    [CmdletBinding()]
+    [OutputType([void])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$SubscriptionId,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$ProviderNamespace
+    )
+
+    $RegistrationState = (& $script:AzureCli provider show `
+            --subscription $SubscriptionId `
+            --namespace $ProviderNamespace `
+            --query registrationState `
+            --output tsv 2>$null).Trim()
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to inspect $ProviderNamespace provider registration in '$SubscriptionId'."
+    }
+    if ($RegistrationState -eq 'Registered') {
+        return
+    }
+
+    & $script:AzureCli provider register `
+        --subscription $SubscriptionId `
+        --namespace $ProviderNamespace `
+        --wait `
+        --output none
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to register the $ProviderNamespace resource provider in '$SubscriptionId'."
+    }
+}
+
+function Ensure-AzureCliExtension {
+    <#
+    .SYNOPSIS
+        Ensures that an Azure CLI extension is installed.
+    .OUTPUTS
+        None.
+    #>
+    [CmdletBinding()]
+    [OutputType([void])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Name
+    )
+
+    & $script:AzureCli extension show --name $Name --output none 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        return
+    }
+
+    & $script:AzureCli extension add --name $Name --yes --output none
+    if ($LASTEXITCODE -ne 0) {
+        throw "Unable to install the Azure CLI '$Name' extension."
+    }
+}
+
+function Assert-FreeGuestMetricsDcr {
+    <#
+    .SYNOPSIS
+        Validates the regional OpenTelemetry guest metrics data collection rule.
+    .OUTPUTS
+        None.
+    #>
+    [CmdletBinding()]
+    [OutputType([void])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNull()]
+        [object]$Dcr,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$AzureMonitorWorkspaceResourceId,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$GuestMetricsLocation
+    )
+
+    if ([string]$Dcr.type -ine 'Microsoft.Insights/dataCollectionRules') {
+        throw "Resolved resource type '$($Dcr.type)' is not Microsoft.Insights/dataCollectionRules."
+    }
+    if (-not [string]::IsNullOrWhiteSpace([string]$Dcr.kind)) {
+        throw "The free guest metrics DCR must support both Windows and Linux, but its kind is '$($Dcr.kind)'."
+    }
+    if (
+        (ConvertTo-NormalizedLocation -Value ([string]$Dcr.location)) -ne
+        (ConvertTo-NormalizedLocation -Value $GuestMetricsLocation)
+    ) {
+        throw "The free guest metrics DCR location '$($Dcr.location)' does not match '$GuestMetricsLocation'."
+    }
+    if (
+        -not [string]::IsNullOrWhiteSpace([string]$Dcr.properties.provisioningState) -and
+        [string]$Dcr.properties.provisioningState -ine 'Succeeded'
+    ) {
+        throw "The free guest metrics DCR provisioning state is '$($Dcr.properties.provisioningState)'."
+    }
+
+    $ExpectedGuestMetricCounters = @(
+        'system.filesystem.usage'
+        'system.disk.io'
+        'system.disk.operations'
+        'system.disk.operation_time'
+    )
+    $ConfiguredGuestMetricCounters = @(
+        $Dcr.properties.dataSources.performanceCountersOTel |
+            ForEach-Object { $_.counterSpecifiers } |
+            ForEach-Object { [string]$_ } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+    )
+    $MissingGuestMetricCounters = @(
+        $ExpectedGuestMetricCounters |
+            Where-Object { $ConfiguredGuestMetricCounters -inotcontains $_ }
+    )
+    if ($MissingGuestMetricCounters.Count -gt 0) {
+        throw "The free guest metrics DCR is missing required OpenTelemetry counters: $($MissingGuestMetricCounters -join ', ')."
+    }
+
+    $NormalizedAzureMonitorWorkspaceResourceId = $AzureMonitorWorkspaceResourceId.TrimEnd('/')
+    $MatchingMonitoringAccountDestinations = @(
+        $Dcr.properties.destinations.monitoringAccounts |
+            Where-Object {
+                -not [string]::IsNullOrWhiteSpace([string]$_.accountResourceId) -and
+                [string]$_.accountResourceId.TrimEnd('/') -ieq $NormalizedAzureMonitorWorkspaceResourceId
+            }
+    )
+    if ($MatchingMonitoringAccountDestinations.Count -ne 1) {
+        throw "The free guest metrics DCR does not send metrics to Azure Monitor workspace '$AzureMonitorWorkspaceResourceId'."
+    }
+    $MonitoringAccountDestinationName = [string]$MatchingMonitoringAccountDestinations[0].name
+    $ValidOtelDataFlows = @(
+        $Dcr.properties.dataFlows |
+            Where-Object {
+                $_.streams -contains 'Microsoft-OtelPerfMetrics' -and
+                $_.destinations -contains $MonitoringAccountDestinationName
+            }
+    )
+    if ($ValidOtelDataFlows.Count -eq 0) {
+        throw "The free guest metrics DCR has no Microsoft-OtelPerfMetrics data flow to '$MonitoringAccountDestinationName'."
+    }
 }
 
 function Grant-AzureRole {
@@ -311,6 +512,71 @@ function Grant-AzureRole {
         --output none
     if ($LASTEXITCODE -ne 0) {
         throw "Unable to grant '$RoleName' at '$Scope'."
+    }
+}
+
+function Add-GrafanaAzureMonitorWorkspaceIntegration {
+    <#
+    .SYNOPSIS
+        Links an Azure Monitor workspace to Azure Managed Grafana.
+    .OUTPUTS
+        None.
+    #>
+    [CmdletBinding()]
+    [OutputType([void])]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$GrafanaResourceId,
+
+        [Parameter(Mandatory = $true)]
+        [ValidateNotNullOrEmpty()]
+        [string]$AzureMonitorWorkspaceResourceId
+    )
+
+    $GrafanaParts = ConvertFrom-AzureResourceId -ResourceId $GrafanaResourceId
+    $AzureMonitorWorkspaceParts = ConvertFrom-AzureResourceId -ResourceId $AzureMonitorWorkspaceResourceId
+    $LinkedWorkspaceResourceIds = @(
+        Invoke-AzureCliJson `
+            -Arguments @(
+                'grafana', 'integration', 'monitor', 'list',
+                '--subscription', $GrafanaParts.SubscriptionId,
+                '--resource-group', $GrafanaParts.ResourceGroupName,
+                '--name', $GrafanaParts.Name,
+                '--output', 'json'
+            ) `
+            -FailureMessage "Unable to list Azure Monitor workspace integrations for Grafana '$($GrafanaParts.Name)'."
+    )
+
+    if ($LinkedWorkspaceResourceIds -inotcontains $AzureMonitorWorkspaceResourceId.TrimEnd('/')) {
+        Invoke-AzureCliJson `
+            -Arguments @(
+                'grafana', 'integration', 'monitor', 'add',
+                '--subscription', $GrafanaParts.SubscriptionId,
+                '--resource-group', $GrafanaParts.ResourceGroupName,
+                '--name', $GrafanaParts.Name,
+                '--monitor-subscription-id', $AzureMonitorWorkspaceParts.SubscriptionId,
+                '--monitor-resource-group-name', $AzureMonitorWorkspaceParts.ResourceGroupName,
+                '--monitor-name', $AzureMonitorWorkspaceParts.Name,
+                '--skip-role-assignments', 'true',
+                '--output', 'json'
+            ) `
+            -FailureMessage "Unable to link Azure Monitor workspace '$($AzureMonitorWorkspaceParts.Name)' to Grafana '$($GrafanaParts.Name)'." | Out-Null
+    }
+
+    $VerifiedWorkspaceResourceIds = @(
+        Invoke-AzureCliJson `
+            -Arguments @(
+                'grafana', 'integration', 'monitor', 'list',
+                '--subscription', $GrafanaParts.SubscriptionId,
+                '--resource-group', $GrafanaParts.ResourceGroupName,
+                '--name', $GrafanaParts.Name,
+                '--output', 'json'
+            ) `
+            -FailureMessage "Unable to verify Azure Monitor workspace integrations for Grafana '$($GrafanaParts.Name)'."
+    )
+    if ($VerifiedWorkspaceResourceIds -inotcontains $AzureMonitorWorkspaceResourceId.TrimEnd('/')) {
+        throw "Azure Monitor workspace '$AzureMonitorWorkspaceResourceId' is not linked to Grafana '$GrafanaResourceId'."
     }
 }
 
@@ -392,7 +658,15 @@ if ($MyInvocation.InvocationName -ne '.') {
         $DeployFree = if ($SelectedArtifacts) { $Free.IsPresent } else { $true }
         $DeployAlerts = if ($SelectedArtifacts) { $Alerts.IsPresent } else { $true }
         $DeployFreeGuestMetrics = if ($SelectedArtifacts) { $FreeGuestMetrics.IsPresent } else { $false }
-        $NeedResourceGroup = $DeployGrafana -or $DeployVMInsights -or $DeployFree -or $DeployAlerts
+        $NeedAzureMonitorWorkspace = $DeployGrafana -or $DeployFree -or $DeployFreeGuestMetrics
+        $NeedFreeGuestMetricsDcr = $NeedAzureMonitorWorkspace
+        $NeedResourceGroup = (
+            $DeployGrafana -or
+            $DeployVMInsights -or
+            $DeployFree -or
+            $DeployAlerts -or
+            $DeployFreeGuestMetrics
+        )
 
         if ($NeedResourceGroup) {
             $ResourceGroupName = Read-DeploymentValue -Value $ResourceGroupName -Prompt 'Deployment resource group name' -DefaultValue 'vm-disk-observability-rg'
@@ -413,25 +687,23 @@ if ($MyInvocation.InvocationName -ne '.') {
         }
 
         $NeedLogAnalyticsWorkspace = $DeployVMInsights -or $DeployGrafana
-        $NeedNativeVm = $DeployGrafana -or $DeployVMInsights -or $DeployFree -or $DeployAlerts
+        $NeedNativeVm = (
+            $DeployGrafana -or
+            $DeployVMInsights -or
+            $DeployFree -or
+            $DeployAlerts -or
+            $DeployFreeGuestMetrics
+        )
 
         if ($NeedLogAnalyticsWorkspace) {
             $LogAnalyticsWorkspaceResourceId = Read-DeploymentValue `
                 -Value $LogAnalyticsWorkspaceResourceId `
                 -Prompt 'Log Analytics workspace resource ID'
         }
-        if ($DeployFree) {
-            $AzureMonitorWorkspaceResourceId = Read-DeploymentValue `
-                -Value $AzureMonitorWorkspaceResourceId `
-                -Prompt 'Azure Monitor workspace resource ID'
-        }
         if ($DeployFreeGuestMetrics) {
             $ManagementGroupName = Read-DeploymentValue `
                 -Value $ManagementGroupName `
                 -Prompt 'Management group name for free guest metrics policy'
-            $FreeGuestMetricsDcrResourceId = Read-DeploymentValue `
-                -Value $FreeGuestMetricsDcrResourceId `
-                -Prompt 'Free guest metrics data collection rule resource ID'
         }
         if ($NeedNativeVm) {
             $NativeVmResourceId = Read-DeploymentValue `
@@ -445,6 +717,54 @@ if ($MyInvocation.InvocationName -ne '.') {
             if ($AlertEmailAddress -notmatch '^[^@\s]+@[^@\s]+\.[^@\s]+$') {
                 throw "AlertEmailAddress '$AlertEmailAddress' is not a valid email address."
             }
+        }
+
+        $FreeGuestMetricsDcr = $null
+        if (
+            -not [string]::IsNullOrWhiteSpace($FreeGuestMetricsDcrResourceId) -and
+            [string]::IsNullOrWhiteSpace($AzureMonitorWorkspaceResourceId)
+        ) {
+            $SuppliedDcrParts = ConvertFrom-AzureResourceId -ResourceId $FreeGuestMetricsDcrResourceId
+            if (
+                $SuppliedDcrParts.ProviderNamespace -ne 'Microsoft.Insights' -or
+                $SuppliedDcrParts.ResourceType -ne 'dataCollectionRules'
+            ) {
+                throw 'The supplied free guest metrics DCR ID does not identify a data collection rule.'
+            }
+            $SuppliedDcrAccount = Invoke-AzureCliJson `
+                -Arguments @('account', 'show', '--subscription', $SuppliedDcrParts.SubscriptionId, '--output', 'json') `
+                -FailureMessage "Unable to access referenced subscription '$($SuppliedDcrParts.SubscriptionId)'."
+            if ($SuppliedDcrAccount.tenantId -ne $TenantId) {
+                throw "Referenced subscription '$($SuppliedDcrParts.SubscriptionId)' is not in tenant '$TenantId'."
+            }
+            $FreeGuestMetricsDcr = Invoke-AzureCliJson `
+                -Arguments @('resource', 'show', '--ids', $FreeGuestMetricsDcrResourceId, '--api-version', '2024-03-11', '--output', 'json') `
+                -FailureMessage "Unable to resolve free guest metrics DCR '$FreeGuestMetricsDcrResourceId'."
+            $DcrWorkspaceResourceIds = @(
+                $FreeGuestMetricsDcr.properties.destinations.monitoringAccounts |
+                    ForEach-Object { [string]$_.accountResourceId } |
+                    Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+                    Sort-Object -Unique
+            )
+            if ($DcrWorkspaceResourceIds.Count -ne 1) {
+                throw 'The supplied free guest metrics DCR must reference exactly one Azure Monitor workspace.'
+            }
+            $AzureMonitorWorkspaceResourceId = $DcrWorkspaceResourceIds[0]
+        }
+
+        $ShouldDeployAzureMonitorWorkspace = (
+            $NeedAzureMonitorWorkspace -and
+            [string]::IsNullOrWhiteSpace($AzureMonitorWorkspaceResourceId)
+        )
+        $ShouldDeployFreeGuestMetricsDcr = (
+            $NeedFreeGuestMetricsDcr -and
+            [string]::IsNullOrWhiteSpace($FreeGuestMetricsDcrResourceId)
+        )
+        if ($ShouldDeployAzureMonitorWorkspace -and [string]::IsNullOrWhiteSpace($AzureMonitorWorkspaceName)) {
+            $AzureMonitorWorkspaceName = 'amw-vm-disk-observability'
+        }
+        if ($ShouldDeployFreeGuestMetricsDcr -and [string]::IsNullOrWhiteSpace($FreeGuestMetricsDcrName)) {
+            $FreeGuestMetricsDcrName = 'dcr-vm-disk-observability'
         }
 
         $ReferencedSubscriptionIds = @()
@@ -498,60 +818,70 @@ if ($MyInvocation.InvocationName -ne '.') {
                 -FailureMessage "Unable to resolve Log Analytics workspace '$LogAnalyticsWorkspaceResourceId'." | Out-Null
         }
         if (-not [string]::IsNullOrWhiteSpace($AzureMonitorWorkspaceResourceId)) {
-            Invoke-AzureCliJson `
-                -Arguments @('resource', 'show', '--ids', $AzureMonitorWorkspaceResourceId, '--output', 'json') `
-                -FailureMessage "Unable to resolve Azure Monitor workspace '$AzureMonitorWorkspaceResourceId'." | Out-Null
+            $AzureMonitorWorkspace = Invoke-AzureCliJson `
+                -Arguments @('resource', 'show', '--ids', $AzureMonitorWorkspaceResourceId, '--api-version', '2023-04-03', '--output', 'json') `
+                -FailureMessage "Unable to resolve Azure Monitor workspace '$AzureMonitorWorkspaceResourceId'."
+            if ([string]$AzureMonitorWorkspace.type -ine 'Microsoft.Monitor/accounts') {
+                throw "Resolved resource type '$($AzureMonitorWorkspace.type)' is not Microsoft.Monitor/accounts."
+            }
         }
         if (-not [string]::IsNullOrWhiteSpace($FreeGuestMetricsDcrResourceId)) {
-            $FreeGuestMetricsDcr = Invoke-AzureCliJson `
-                -Arguments @('resource', 'show', '--ids', $FreeGuestMetricsDcrResourceId, '--output', 'json') `
-                -FailureMessage "Unable to resolve free guest metrics DCR '$FreeGuestMetricsDcrResourceId'."
-            if (-not [string]::IsNullOrWhiteSpace([string]$FreeGuestMetricsDcr.kind)) {
-                throw "The free guest metrics DCR must support both Windows and Linux, but its kind is '$($FreeGuestMetricsDcr.kind)'."
-            }
-
-            $ExpectedGuestMetricCounters = @(
-                'system.filesystem.usage'
-                'system.disk.io'
-                'system.disk.operations'
-                'system.disk.operation_time'
-            )
-            $ConfiguredGuestMetricCounters = @(
-                $FreeGuestMetricsDcr.properties.dataSources.performanceCountersOTel |
-                    ForEach-Object { $_.counterSpecifiers } |
-                    ForEach-Object { [string]$_ } |
-                    Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
-            )
-            $MissingGuestMetricCounters = @(
-                $ExpectedGuestMetricCounters |
-                    Where-Object { $ConfiguredGuestMetricCounters -inotcontains $_ }
-            )
-            if ($MissingGuestMetricCounters.Count -gt 0) {
-                throw "The free guest metrics DCR is missing required OpenTelemetry counters: $($MissingGuestMetricCounters -join ', ')."
-            }
-
-            if (-not [string]::IsNullOrWhiteSpace($AzureMonitorWorkspaceResourceId)) {
-                $NormalizedAzureMonitorWorkspaceResourceId = $AzureMonitorWorkspaceResourceId.TrimEnd('/')
-                $MonitoringAccountResourceIds = @(
-                    $FreeGuestMetricsDcr.properties.destinations.monitoringAccounts |
-                        ForEach-Object { [string]$_.accountResourceId } |
-                        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
-                        ForEach-Object { $_.TrimEnd('/') }
-                )
-                if ($MonitoringAccountResourceIds -inotcontains $NormalizedAzureMonitorWorkspaceResourceId) {
-                    throw "The free guest metrics DCR does not send metrics to Azure Monitor workspace '$AzureMonitorWorkspaceResourceId'."
-                }
+            if ($null -eq $FreeGuestMetricsDcr) {
+                $FreeGuestMetricsDcr = Invoke-AzureCliJson `
+                    -Arguments @('resource', 'show', '--ids', $FreeGuestMetricsDcrResourceId, '--api-version', '2024-03-11', '--output', 'json') `
+                    -FailureMessage "Unable to resolve free guest metrics DCR '$FreeGuestMetricsDcrResourceId'."
             }
         }
         if ($NeedNativeVm) {
-            Invoke-AzureCliJson `
+            $NativeVmResource = Invoke-AzureCliJson `
                 -Arguments @('resource', 'show', '--ids', $NativeVmResourceId, '--output', 'json') `
-                -FailureMessage "Unable to resolve native Azure VM '$NativeVmResourceId'." | Out-Null
+                -FailureMessage "Unable to resolve native Azure VM '$NativeVmResourceId'."
+        }
+
+        if ($NeedAzureMonitorWorkspace) {
+            $NativeVmLocation = ConvertTo-NormalizedLocation -Value ([string]$NativeVmResource.location)
+            if ([string]::IsNullOrWhiteSpace($GuestMetricsLocation)) {
+                $GuestMetricsLocation = $NativeVmLocation
+            }
+            elseif ((ConvertTo-NormalizedLocation -Value $GuestMetricsLocation) -ne $NativeVmLocation) {
+                throw "GuestMetricsLocation '$GuestMetricsLocation' does not match selected VM region '$($NativeVmResource.location)'."
+            }
+            else {
+                $GuestMetricsLocation = ConvertTo-NormalizedLocation -Value $GuestMetricsLocation
+            }
+
+            if (
+                $null -ne $AzureMonitorWorkspace -and
+                (ConvertTo-NormalizedLocation -Value ([string]$AzureMonitorWorkspace.location)) -ne $GuestMetricsLocation
+            ) {
+                throw "Azure Monitor workspace location '$($AzureMonitorWorkspace.location)' does not match selected VM region '$GuestMetricsLocation'."
+            }
+            if ($null -ne $FreeGuestMetricsDcr) {
+                Assert-FreeGuestMetricsDcr `
+                    -Dcr $FreeGuestMetricsDcr `
+                    -AzureMonitorWorkspaceResourceId $AzureMonitorWorkspaceResourceId `
+                    -GuestMetricsLocation $GuestMetricsLocation
+            }
+        }
+
+        if ($ShouldDeployAzureMonitorWorkspace) {
+            Ensure-AzureProvider -SubscriptionId $SubscriptionId -ProviderNamespace 'Microsoft.Monitor'
+        }
+        if (
+            $ShouldDeployFreeGuestMetricsDcr -or
+            $DeployVMInsights -or
+            $DeployFree -or
+            $DeployAlerts
+        ) {
+            Ensure-AzureProvider -SubscriptionId $SubscriptionId -ProviderNamespace 'Microsoft.Insights'
+        }
+        if ($DeployGrafana) {
+            Ensure-AzureCliExtension -Name 'amg'
+            Ensure-AzureCliExtension -Name 'resource-graph'
         }
 
         $ShouldDeployGrafana = $false
         $ShouldGrantExplicitGrafanaAdmin = $false
-        $GrafanaResourceId = $null
         if ($DeployGrafana) {
         $GrafanaResource = $null
         $ShouldGrantExplicitGrafanaAdmin = -not [string]::IsNullOrWhiteSpace($GrafanaAdminPrincipalId)
@@ -609,34 +939,29 @@ if ($MyInvocation.InvocationName -ne '.') {
         }
 
         if ($ShouldDeployGrafana) {
-            $DashboardProviderState = (& $script:AzureCli provider show `
-                    --subscription $SubscriptionId `
-                    --namespace Microsoft.Dashboard `
-                    --query registrationState `
-                    --output tsv 2>$null).Trim()
-            if ($LASTEXITCODE -ne 0) {
-                throw "Unable to inspect Microsoft.Dashboard provider registration in '$SubscriptionId'."
-            }
-            if ($DashboardProviderState -ne 'Registered') {
-                & $script:AzureCli provider register `
-                    --subscription $SubscriptionId `
-                    --namespace Microsoft.Dashboard `
-                    --wait `
-                    --output none
-                if ($LASTEXITCODE -ne 0) {
-                    throw "Unable to register the Microsoft.Dashboard resource provider in '$SubscriptionId'."
-                }
-            }
+            Ensure-AzureProvider -SubscriptionId $SubscriptionId -ProviderNamespace 'Microsoft.Dashboard'
         }
         }
 
-        $ShouldRunBicep = $DeployVMInsights -or $DeployFree -or $DeployAlerts -or $ShouldDeployGrafana
+        $ShouldRunBicep = (
+            $DeployVMInsights -or
+            $DeployFree -or
+            $DeployAlerts -or
+            $ShouldDeployGrafana -or
+            $ShouldDeployAzureMonitorWorkspace -or
+            $ShouldDeployFreeGuestMetricsDcr
+        )
         $Deployment = $null
         if ($ShouldRunBicep) {
             $DeploymentParameters = @(
                 "location=$Location",
                 "logAnalyticsWorkspaceResourceId=$LogAnalyticsWorkspaceResourceId",
                 "azureMonitorWorkspaceResourceId=$AzureMonitorWorkspaceResourceId",
+                "shouldDeployAzureMonitorWorkspace=$($ShouldDeployAzureMonitorWorkspace.ToString().ToLowerInvariant())",
+                "azureMonitorWorkspaceName=$AzureMonitorWorkspaceName",
+                "guestMetricsLocation=$GuestMetricsLocation",
+                "shouldDeployFreeGuestMetricsDcr=$($ShouldDeployFreeGuestMetricsDcr.ToString().ToLowerInvariant())",
+                "freeGuestMetricsDcrName=$FreeGuestMetricsDcrName",
                 "nativeVmResourceId=$NativeVmResourceId",
                 "workbookDisplayName=$WorkbookDisplayName",
                 "shouldDeployWorkbook=$($DeployVMInsights.ToString().ToLowerInvariant())",
@@ -663,6 +988,34 @@ if ($MyInvocation.InvocationName -ne '.') {
                 -FailureMessage 'The Azure resource deployment failed.'
         }
 
+        if ($NeedAzureMonitorWorkspace) {
+            if ($ShouldDeployAzureMonitorWorkspace) {
+                $AzureMonitorWorkspaceResourceId = [string]$Deployment.properties.outputs.effectiveAzureMonitorWorkspaceResourceId.value
+            }
+            $AzureMonitorWorkspace = Invoke-AzureCliJson `
+                -Arguments @('resource', 'show', '--ids', $AzureMonitorWorkspaceResourceId, '--api-version', '2023-04-03', '--output', 'json') `
+                -FailureMessage "Unable to verify Azure Monitor workspace '$AzureMonitorWorkspaceResourceId'."
+            if (
+                [string]$AzureMonitorWorkspace.type -ine 'Microsoft.Monitor/accounts' -or
+                (ConvertTo-NormalizedLocation -Value ([string]$AzureMonitorWorkspace.location)) -ne $GuestMetricsLocation
+            ) {
+                throw "Azure Monitor workspace '$AzureMonitorWorkspaceResourceId' failed post-deployment validation."
+            }
+        }
+
+        if ($NeedFreeGuestMetricsDcr) {
+            if ($ShouldDeployFreeGuestMetricsDcr) {
+                $FreeGuestMetricsDcrResourceId = [string]$Deployment.properties.outputs.freeGuestMetricsDcrResourceId.value
+            }
+            $FreeGuestMetricsDcr = Invoke-AzureCliJson `
+                -Arguments @('resource', 'show', '--ids', $FreeGuestMetricsDcrResourceId, '--api-version', '2024-03-11', '--output', 'json') `
+                -FailureMessage "Unable to verify free guest metrics DCR '$FreeGuestMetricsDcrResourceId'."
+            Assert-FreeGuestMetricsDcr `
+                -Dcr $FreeGuestMetricsDcr `
+                -AzureMonitorWorkspaceResourceId $AzureMonitorWorkspaceResourceId `
+                -GuestMetricsLocation $GuestMetricsLocation
+        }
+
         if ($DeployGrafana -and $ShouldDeployGrafana) {
             $GrafanaResourceId = $Deployment.properties.outputs.grafanaResourceId.value
             $GrafanaResource = Invoke-AzureCliJson `
@@ -673,22 +1026,47 @@ if ($MyInvocation.InvocationName -ne '.') {
             $GrafanaResourceId = $GrafanaResource.id
         }
 
-        if ($DeployGrafana -and -not $SkipRoleAssignments) {
-            $ImportPrincipalId = $null
-            $ImportPrincipalType = $null
-            if (-not $SkipGrafanaImport -or ($ShouldDeployGrafana -and -not $ShouldGrantExplicitGrafanaAdmin)) {
-                if ($DeploymentAccount.user.type -eq 'user') {
-                    $ImportPrincipalId = (& $script:AzureCli ad signed-in-user show --query id --output tsv).Trim()
-                    $ImportPrincipalType = 'User'
-                }
-                else {
-                    $ImportPrincipalId = (& $script:AzureCli ad sp show --id $DeploymentAccount.user.name --query id --output tsv).Trim()
-                    $ImportPrincipalType = 'ServicePrincipal'
-                }
-                if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($ImportPrincipalId)) {
-                    throw 'Unable to resolve the deploying principal object ID.'
-                }
+        $DeploymentPrincipalId = $null
+        $DeploymentPrincipalType = $null
+        if (-not $SkipRoleAssignments) {
+            if ($DeploymentAccount.user.type -eq 'user') {
+                $DeploymentPrincipalId = (& $script:AzureCli ad signed-in-user show --query id --output tsv).Trim()
+                $DeploymentPrincipalType = 'User'
             }
+            else {
+                $DeploymentPrincipalId = (& $script:AzureCli ad sp show --id $DeploymentAccount.user.name --query id --output tsv).Trim()
+                $DeploymentPrincipalType = 'ServicePrincipal'
+            }
+            if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($DeploymentPrincipalId)) {
+                throw 'Unable to resolve the deploying principal object ID.'
+            }
+
+            if ($NeedLogAnalyticsWorkspace) {
+                Grant-AzureRole `
+                    -PrincipalId $DeploymentPrincipalId `
+                    -PrincipalType $DeploymentPrincipalType `
+                    -RoleName 'Log Analytics Reader' `
+                    -Scope $LogAnalyticsWorkspaceResourceId
+            }
+            if ($NeedNativeVm) {
+                Grant-AzureRole `
+                    -PrincipalId $DeploymentPrincipalId `
+                    -PrincipalType $DeploymentPrincipalType `
+                    -RoleName 'Monitoring Reader' `
+                    -Scope $NativeVmResourceId
+            }
+            if ($NeedAzureMonitorWorkspace) {
+                Grant-AzureRole `
+                    -PrincipalId $DeploymentPrincipalId `
+                    -PrincipalType $DeploymentPrincipalType `
+                    -RoleName 'Monitoring Data Reader' `
+                    -Scope $AzureMonitorWorkspaceResourceId
+            }
+        }
+
+        if ($DeployGrafana -and -not $SkipRoleAssignments) {
+            $ImportPrincipalId = $DeploymentPrincipalId
+            $ImportPrincipalType = $DeploymentPrincipalType
 
             if ($ShouldDeployGrafana -and -not $ShouldGrantExplicitGrafanaAdmin) {
                 $GrafanaAdminPrincipalId = $ImportPrincipalId
@@ -708,13 +1086,13 @@ if ($MyInvocation.InvocationName -ne '.') {
                     -Scope $GrafanaResourceId
             }
 
-                    if (-not $SkipGrafanaImport -and $ImportPrincipalId -ne $GrafanaAdminPrincipalId) {
-                    Grant-AzureRole `
-                        -PrincipalId $ImportPrincipalId `
-                        -PrincipalType $ImportPrincipalType `
-                        -RoleName 'Grafana Editor' `
-                        -Scope $GrafanaResourceId
-                    }
+            if (-not $SkipGrafanaImport -and $ImportPrincipalId -ne $GrafanaAdminPrincipalId) {
+                Grant-AzureRole `
+                    -PrincipalId $ImportPrincipalId `
+                    -PrincipalType $ImportPrincipalType `
+                    -RoleName 'Grafana Editor' `
+                    -Scope $GrafanaResourceId
+            }
 
             $GrafanaPrincipalId = $GrafanaResource.identity.principalId
             Grant-AzureRole `
@@ -727,6 +1105,17 @@ if ($MyInvocation.InvocationName -ne '.') {
                 -PrincipalType 'ServicePrincipal' `
                 -RoleName 'Monitoring Reader' `
                 -Scope $NativeVmResourceId
+            Grant-AzureRole `
+                -PrincipalId $GrafanaPrincipalId `
+                -PrincipalType 'ServicePrincipal' `
+                -RoleName 'Monitoring Data Reader' `
+                -Scope $AzureMonitorWorkspaceResourceId
+        }
+
+        if ($DeployGrafana) {
+            Add-GrafanaAzureMonitorWorkspaceIntegration `
+                -GrafanaResourceId $GrafanaResourceId `
+                -AzureMonitorWorkspaceResourceId $AzureMonitorWorkspaceResourceId
         }
 
         if ($DeployGrafana -and -not $SkipGrafanaImport) {
@@ -734,6 +1123,7 @@ if ($MyInvocation.InvocationName -ne '.') {
                 -TenantId $TenantId `
                 -GrafanaResourceId $GrafanaResourceId `
                 -WorkspaceResourceId $LogAnalyticsWorkspaceResourceId `
+                -AzureMonitorWorkspaceResourceId $AzureMonitorWorkspaceResourceId `
                 -NativeVmResourceId $NativeVmResourceId `
                 -DashboardTitle $WorkbookDisplayName
             if ($LASTEXITCODE -ne 0) {
@@ -747,6 +1137,12 @@ if ($MyInvocation.InvocationName -ne '.') {
                 TenantId = $TenantId
                 DcrResourceId = $FreeGuestMetricsDcrResourceId
                 StartRemediation = -not $SkipPolicyRemediation.IsPresent
+            }
+            if (-not [string]::IsNullOrWhiteSpace($FreeGuestMetricsAssignmentName)) {
+                $PolicyDeploymentParameters.AssignmentName = $FreeGuestMetricsAssignmentName
+            }
+            if (-not [string]::IsNullOrWhiteSpace($FreeGuestMetricsAssignmentDisplayName)) {
+                $PolicyDeploymentParameters.AssignmentDisplayName = $FreeGuestMetricsAssignmentDisplayName
             }
             & $PolicyScript @PolicyDeploymentParameters
             if ($LASTEXITCODE -ne 0) {

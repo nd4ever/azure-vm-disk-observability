@@ -1,7 +1,7 @@
 ---
 title: Azure VM Disk Observability
 description: Azure Workbook and Managed Grafana demo for per-disk VM performance and capacity
-ms.date: 2026-09-28
+ms.date: 2026-09-29
 ms.topic: tutorial
 ---
 
@@ -114,7 +114,7 @@ work for Azure Arc connected servers and native Azure VMs. Guest-side
 `vm-total-iops-timeseries.kql` and `vm-total-throughput-timeseries.kql` chart the aggregate
 demand across all logical disks per machine.
 
-### 5. Free native VM guest metrics
+### 5. Default OpenTelemetry native VM guest metrics
 
 The free workbook and Grafana dashboard add Prometheus-backed guest disk views for native
 Azure VMs. The capacity table uses `system.filesystem.usage`, rounds values to two decimal
@@ -122,10 +122,26 @@ places, and identifies capacity as GB and utilization as a percentage. Device-le
 charts use `system.disk.operations`, `system.disk.io`, and
 `system.disk.operation_time`. The charts exclude loop, optical, RAM, and floppy devices.
 
-These default metrics have no additional metric-ingestion charge. Azure Monitor Agent and
-a regional metrics DCR are required. Customized metrics are outside this default set and
-can incur charges. Guest device names and mount points are separate from Azure data-disk
-LUNs, so the workbook keeps the two views distinct.
+Microsoft documents these four metrics as part of the
+[default OpenTelemetry VM metric set](https://learn.microsoft.com/azure/azure-monitor/vm/metrics-opentelemetry-guest-modify#metrics-reference),
+which is collected at no additional cost. Azure Monitor Agent and a regional metrics DCR
+send the `Microsoft-OtelPerfMetrics` stream to an Azure Monitor workspace. This path does
+not require logs-based VM Insights.
+
+Azure Monitor Agent is also used by the separate logs-based VM Insights path. If that path
+is enabled, data sent to the `InsightsMetrics` or `Perf` tables has normal Log Analytics
+ingestion and retention charges. VM compute, Azure Managed Grafana, alerts, and additional
+or per-process OpenTelemetry metrics can also incur separate charges. See Microsoft's
+[metrics-based and logs-based comparison](https://learn.microsoft.com/azure/azure-monitor/vm/metrics-opentelemetry-guest)
+for the billing distinction.
+
+Guest device names and mount points are separate from Azure data-disk LUNs, so the
+workbook keeps the two views distinct.
+
+Guest panels only show samples collected after onboarding while the VM is running and the
+agent is publishing. In Grafana, select a time range that includes those samples. The
+workbook capacity table requires a current sample, so it returns no results for a
+deallocated VM. Start the VM or select a running VM to restore that live capacity view.
 
 ### Selecting a VM
 
@@ -153,24 +169,47 @@ deployment. Its resource selector uses the metrics DCR region, so only supported
 that region are onboarded. Existing supported VMs are remediated, and future supported
 VMs under the management group are onboarded automatically.
 
+The OpenTelemetry path uses a create-or-reuse model. Supply existing Azure Monitor
+workspace and DCR resource IDs to preserve shared resources. When either ID is omitted,
+the deployment creates the missing resource in the solution resource group. The Azure
+Monitor workspace and DCR use the selected native VM's region, even if the solution
+resource group uses another region. A supplied DCR can provide the workspace ID through
+its monitoring-account destination.
+
+Each deployment covers one guest-metrics region. Run the deployment again with a VM from
+each additional region and use region-specific workspace, DCR, and policy-assignment
+names. The current Workbook selects one Azure Monitor workspace, while Grafana can link
+more than one workspace through separate Prometheus datasources.
+
 ## Prerequisites
 
 * PowerShell 7
 * Azure CLI with an authenticated session
-* Azure Managed Grafana CLI extension (`az extension add --name amg`)
 * Contributor access to the deployment resource group
+* Permission to register `Microsoft.Monitor`, `Microsoft.Insights`, and
+  `Microsoft.Dashboard` in the deployment subscription
 * Monitoring Contributor access to the monitored VM's resource group when deploying alerts
 * User Access Administrator or Owner access at each role-assignment scope
 * Resource Policy Contributor and User Access Administrator, or Owner, at the selected
   management group when deploying free guest metrics policy
 * Grafana Admin or Grafana Editor access when importing into an existing instance
-* An Azure Monitor workspace linked to Azure Managed Grafana for the Prometheus-backed
-  guest filesystem panel
 
-Creating the resource group or registering the `Microsoft.Dashboard` resource provider
-also requires the corresponding subscription-level permissions. Pre-create the resource
-group and register the provider when the deploying principal has resource-group-only
-Contributor access.
+The unified deployment installs the Azure CLI `amg` and `resource-graph` extensions when
+they are missing. It registers the required resource providers, creates or reuses the
+regional Azure Monitor workspace and DCR, links the workspace to Grafana, and grants the
+Grafana identity `Monitoring Data Reader`. Preinstall the extensions and preregister the
+providers when the deploying principal cannot modify the local CLI or subscription.
+
+Policy remediation enables a system-assigned identity, installs the Windows or Linux
+Azure Monitor Agent, and creates the DCR association on
+[supported operating systems](https://learn.microsoft.com/azure/azure-monitor/agents/azure-monitor-agent-supported-operating-systems).
+The DCR subscription must be a descendant of the selected management group. Unsupported
+images are excluded by the Microsoft-maintained built-in policies.
+
+The selected VM, workspace, and DCR must use the same Azure region. VMs must run before
+AMA can install, configure, and publish samples. Remediation does not start deallocated
+VMs. Their control-plane associations can exist while data remains unavailable until the
+VM runs.
 
 VM Insights must send `LogicalDisk` records to `InsightsMetrics`. The live validation
 command verifies that the project queries execute against the selected workspace.
@@ -203,13 +242,14 @@ The command prompts for:
 * Microsoft Entra tenant and deployment subscription
 * Deployment resource group and its Azure region when the group does not exist
 * Log Analytics workspace resource ID
-* Azure Monitor workspace resource ID for free guest metrics
 * Native Azure VM resource ID for LUN platform metrics
 * Email address for disk and VM SKU saturation alerts
 * An existing Managed Grafana instance or a name for a new instance
 
-Management group name and regional metrics DCR resource ID are prompted only when
-`-FreeGuestMetrics` is supplied.
+The management group name is prompted only when `-FreeGuestMetrics` is supplied. Azure
+Monitor workspace and DCR IDs are optional reuse inputs. When omitted, both resources are
+created with deterministic names in the deployment resource group and the selected VM's
+region.
 
 ### Deployment inputs
 
@@ -224,10 +264,15 @@ Manager IDs.
 | `SubscriptionId`                | Deployment subscription GUID                                                          | Prompted; defaults to the current CLI subscription when the tenant matches  |
 | `ResourceGroupName`             | Resource group name                                                                   | Prompted; defaults to `vm-disk-observability-rg`                            |
 | `Location`                      | Azure region name, such as `eastus`                                                    | Required only when the resource group must be created                       |
-| `LogAnalyticsWorkspaceResourceId` | `/subscriptions/<subscription>/resourceGroups/<group>/providers/Microsoft.OperationalInsights/workspaces/<workspace>` | Required                                                                   |
-| `AzureMonitorWorkspaceResourceId` | `/subscriptions/<subscription>/resourceGroups/<group>/providers/Microsoft.Monitor/accounts/<workspace>` | Required for the `Free` artifact                                            |
-| `FreeGuestMetricsDcrResourceId` | `/subscriptions/<subscription>/resourceGroups/<group>/providers/Microsoft.Insights/dataCollectionRules/<dcr>` | Required for the `FreeGuestMetrics` artifact                                |
+| `LogAnalyticsWorkspaceResourceId` | `/subscriptions/<subscription>/resourceGroups/<group>/providers/Microsoft.OperationalInsights/workspaces/<workspace>` | Required for `VMInsights` and `Grafana`                                     |
+| `AzureMonitorWorkspaceResourceId` | `/subscriptions/<subscription>/resourceGroups/<group>/providers/Microsoft.Monitor/accounts/<workspace>` | Optional reuse input; created when omitted                                  |
+| `AzureMonitorWorkspaceName`     | Azure Monitor workspace name                                                          | Optional; defaults to `amw-vm-disk-observability` when created              |
+| `FreeGuestMetricsDcrResourceId` | `/subscriptions/<subscription>/resourceGroups/<group>/providers/Microsoft.Insights/dataCollectionRules/<dcr>` | Optional reuse input; created when omitted                                  |
+| `FreeGuestMetricsDcrName`       | Data collection rule name                                                             | Optional; defaults to `dcr-vm-disk-observability` when created              |
+| `GuestMetricsLocation`          | Azure region name, such as `centralus`                                                 | Optional; defaults to the selected native VM region                         |
 | `ManagementGroupName`           | Management group name, such as `contoso-platform`                                      | Prompted when deploying `FreeGuestMetrics`                                  |
+| `FreeGuestMetricsAssignmentName` | Management-group policy assignment name                                               | Optional; defaults to `free-guest-metrics`; use a unique name per region    |
+| `FreeGuestMetricsAssignmentDisplayName` | Management-group policy assignment display name                               | Optional; use a region-specific display name for additional regions         |
 | `NativeVmResourceId`            | `/subscriptions/<subscription>/resourceGroups/<group>/providers/Microsoft.Compute/virtualMachines/<vm>` | Required                                                                   |
 | `AlertEmailAddress`             | Email address                                                                         | Required when deploying the `Alerts` artifact                              |
 | `GrafanaResourceId`             | Full resource ID of an existing `Microsoft.Dashboard/grafana` resource                | Optional; selects an existing instance directly                            |
@@ -235,7 +280,7 @@ Manager IDs.
 | `WorkbookDisplayName`           | Azure Monitor Workbook display name                                                   | Optional; defaults to `VM Disk Observability`                               |
 | `GrafanaAdminPrincipalId`       | Microsoft Entra object ID for a user or service principal                             | Optional; defaults to the deploying principal for a new Grafana instance   |
 | `GrafanaAdminPrincipalType`     | `User` or `ServicePrincipal`                                                           | Required when `GrafanaAdminPrincipalId` is supplied                         |
-| `SkipRoleAssignments`           | PowerShell switch                                                                     | Optional; skips Grafana and Monitoring Reader role assignments              |
+| `SkipRoleAssignments`           | PowerShell switch                                                                     | Optional; skips deploying-principal and Grafana RBAC grants                 |
 | `SkipGrafanaImport`             | PowerShell switch                                                                     | Optional; deploys Azure resources without importing the Grafana dashboard   |
 | `Grafana`                       | PowerShell switch                                                                     | Optional; artifact selector for the Grafana dashboard                       |
 | `VMInsights`                    | PowerShell switch                                                                     | Optional; artifact selector for the VM Insights workbook                    |
@@ -252,6 +297,13 @@ any combination to deploy only those artifacts, for example
 `-Free -FreeGuestMetrics`. `-Free`, `-Alerts`, and `-FreeGuestMetrics` do not require a
 Log Analytics workspace.
 
+Selecting `Grafana`, `Free`, or `FreeGuestMetrics` activates the regional
+OpenTelemetry prerequisite path. The deployment creates any missing Azure Monitor
+workspace or DCR, validates the four disk counters and monitoring-account destination,
+and reads both resources back after deployment. `FreeGuestMetrics` additionally deploys
+the management-group policy and remediation tasks. Policy deployment remains opt-in
+because its identity receives roles across the selected management group.
+
 If neither Grafana parameter is supplied, the script displays instances in the
 deployment subscription and prompts you to select one or create a new instance. If
 multiple instances match `GrafanaName`, supply `GrafanaResourceId` to disambiguate.
@@ -262,15 +314,23 @@ The workbook-only command uses `TenantId`, `SubscriptionId`, `ResourceGroupName`
 `vm-disk-observability`, its optional `WorkbookDisplayName` defaults to
 `VM Disk Observability`, and supplying `AlertEmailAddress` also deploys the alerts. Pass
 the same display name used at deployment to update an existing workbook in place. The
-standalone Grafana import
-uses `TenantId`, `GrafanaResourceId`, `WorkspaceResourceId`, and `NativeVmResourceId`;
-`DashboardFile` and `DashboardTitle` are optional.
+standalone Grafana import uses `TenantId`, `GrafanaResourceId`, `WorkspaceResourceId`,
+`AzureMonitorWorkspaceResourceId`, and `NativeVmResourceId`; `DashboardFile` and
+`DashboardTitle` are optional.
 
-Unless role assignments are skipped, the command grants the new Grafana instance's
-managed identity Monitoring Reader over the workspace and native VM. It grants the
-importing user or service principal Grafana Editor on the selected instance. When it
-creates an instance, it grants Grafana Admin to that principal by default. The
-role-assignment steps require User Access Administrator or Owner permissions.
+Unless role assignments are skipped, the command grants the deploying principal Log
+Analytics Reader on the Log Analytics workspace, Monitoring Reader on the native VM, and
+Monitoring Data Reader on the Azure Monitor workspace. These roles provide Workbook query
+access for the selected resources. The principal still needs Reader access to any other
+subscriptions that should appear through Azure Resource Graph.
+
+The Grafana managed identity receives Monitoring Reader over the Log Analytics workspace
+and native VM, plus Monitoring Data Reader over the Azure Monitor workspace. The command
+links that workspace to Grafana and verifies the workspace-specific Prometheus datasource
+before importing. The importing user or service principal receives Grafana Editor on the
+selected instance. When the command creates an instance, it grants Grafana Admin to that
+principal by default. The role-assignment steps require User Access Administrator or Owner
+permissions.
 
 ### Free guest metrics policy
 
@@ -281,9 +341,12 @@ npm run deploy:free-policy
 ```
 
 The command prompts for the management group name when it is not supplied as a parameter.
-It validates and displays the management group and child subscriptions before deployment.
-The policy assignment uses a system-assigned identity and a resource selector derived
-from the DCR region. An explicit `Location` override must match the DCR.
+The unified deployment creates the regional Azure Monitor workspace and DCR when reuse
+IDs are omitted, then passes the effective DCR to the policy script. The standalone
+`deploy:free-policy` command still requires an existing DCR ID. It validates and displays
+the management group and child subscriptions before deployment. The policy assignment
+uses a system-assigned identity and a resource selector derived from the DCR region. An
+explicit `Location` override must match the DCR.
 
 The custom initiative references Microsoft-maintained built-in policies to install Azure
 Monitor Agent on supported Windows and Linux VMs and associate the regional metrics DCR.
@@ -291,6 +354,11 @@ The script verifies that the DCR supports both operating systems and includes th
 guest disk metrics used by the dashboards. When the free workbook and policy are deployed
 together, it also verifies that the DCR sends metrics to the selected Azure Monitor
 workspace.
+
+The generated DCR collects the complete default VM metric set at a 60-second interval:
+uptime, CPU, memory, network, disk, and filesystem metrics. The dashboards use only the
+four disk and filesystem counters listed earlier. Additional regions require another
+deployment with a VM in that region and distinct resource and policy-assignment names.
 
 Each run creates uniquely named remediation tasks in every descendant subscription. This
 allows later reruns to discover newly noncompliant VMs without deleting successful or
@@ -302,9 +370,10 @@ becomes associated and starts publishing only after it runs again.
 > Log Analytics Contributor at the management-group scope. These roles inherit to every
 > child subscription. Review the selected management group before approving deployment.
 
-The policy assignment and default guest metric set have no direct additional charge. AMA
-is installed automatically where required. Customized metrics and unrelated paid
-telemetry, including VM Insights Log Analytics ingestion, retain their normal charges.
+The policy assignment and collection of the default OpenTelemetry guest metric set have
+no direct additional charge. AMA is installed automatically where required. VM compute,
+Azure Managed Grafana, alerts, additional or per-process OpenTelemetry metrics, and
+logs-based VM Insights data sent to Log Analytics retain their normal charges.
 
 #### Remove the free guest metrics policy
 
@@ -349,6 +418,22 @@ az policy set-definition delete `
 Delete only DCR associations created by this policy if telemetry must be removed. Preserve
 pre-existing AMA extensions, paid VM Insights associations, and unrelated DCR
 associations.
+
+If the unified deployment created dedicated prerequisite resources, remove the Grafana
+workspace integration before deleting them:
+
+```powershell
+az grafana integration monitor delete `
+  --resource-group <grafana-resource-group> `
+  --name <grafana-name> `
+  --monitor-resource-group-name <monitor-resource-group> `
+  --monitor-name <monitor-workspace-name> `
+  --monitor-subscription-id <monitor-subscription-id>
+```
+
+Delete `dcr-vm-disk-observability` and `amw-vm-disk-observability` only after confirming
+that no other VM associations, dashboards, or recording rules use them. Preserve any
+workspace or DCR supplied through reuse parameters.
 
 ### Disk and VM SKU alerts
 
@@ -409,12 +494,13 @@ PowerShell prompts for them:
 npm run import:grafana
 ```
 
-The import command discovers the configured Azure Monitor datasource, checks for a
-Prometheus datasource, and derives subscription, resource group, VM name, and region
-values from the supplied resource IDs. The current CLI principal must have Grafana Admin
-or Grafana Editor access. If an Azure Monitor workspace is not linked to the Grafana
-instance, the import emits a warning and the guest filesystem panel remains unavailable
-until the workspace integration creates a Prometheus datasource.
+The import command discovers the configured Azure Monitor datasource, requires the
+Prometheus datasource for the supplied Azure Monitor workspace, and derives subscription,
+resource group, VM name, and region values from the supplied resource IDs. The current
+CLI principal must have Grafana Admin or Grafana Editor access. The import fails when the
+workspace-specific Prometheus datasource is unavailable instead of publishing a dashboard
+with an empty guest filesystem panel. Use the unified deployment to create the workspace
+link and required `Monitoring Data Reader` assignment before import.
 
 You can also import
 [grafana/vm-disk-observability.dashboard.json](grafana/vm-disk-observability.dashboard.json)

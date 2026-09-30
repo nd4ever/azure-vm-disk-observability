@@ -450,6 +450,23 @@ if ($MyInvocation.InvocationName -ne '.') {
         if ($MissingGuestMetricCounters.Count -gt 0) {
             throw "The DCR is missing required OpenTelemetry counters: $($MissingGuestMetricCounters -join ', ')."
         }
+        $MonitoringAccountDestinationNames = @(
+            $Dcr.properties.destinations.monitoringAccounts |
+                ForEach-Object { [string]$_.name } |
+                Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+        )
+        $ValidOtelDataFlows = @(
+            $Dcr.properties.dataFlows |
+                Where-Object {
+                    $_.streams -contains 'Microsoft-OtelPerfMetrics' -and
+                    @($_.destinations | Where-Object {
+                            $MonitoringAccountDestinationNames -icontains $_
+                        }).Count -gt 0
+                }
+        )
+        if ($MonitoringAccountDestinationNames.Count -eq 0 -or $ValidOtelDataFlows.Count -eq 0) {
+            throw 'The DCR must route Microsoft-OtelPerfMetrics to an Azure Monitor workspace destination.'
+        }
 
         $OtherChildSubscriptionCount = @(
             $ChildSubscriptions |

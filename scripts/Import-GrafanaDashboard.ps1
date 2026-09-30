@@ -16,12 +16,14 @@
     Resource ID of the Azure Managed Grafana instance.
 .PARAMETER WorkspaceResourceId
     Resource ID of the Log Analytics workspace containing VM Insights metrics.
+.PARAMETER AzureMonitorWorkspaceResourceId
+    Resource ID of the linked Azure Monitor workspace containing default OpenTelemetry metrics.
 .PARAMETER NativeVmResourceId
     Resource ID of the native Azure VM used for LUN metric panels.
 .PARAMETER DashboardFile
     Path to the Grafana dashboard template.
 .EXAMPLE
-    ./scripts/Import-GrafanaDashboard.ps1 -TenantId <tenant> -GrafanaResourceId <id> -WorkspaceResourceId <id> -NativeVmResourceId <id>
+    ./scripts/Import-GrafanaDashboard.ps1 -TenantId <tenant> -GrafanaResourceId <id> -WorkspaceResourceId <id> -AzureMonitorWorkspaceResourceId <id> -NativeVmResourceId <id>
 .NOTES
     Requires the Azure CLI amg and resource-graph extensions and a Grafana role
     that can read datasources and create dashboards, such as Grafana Admin.
@@ -40,6 +42,10 @@ param(
     [Parameter(Mandatory = $true)]
     [ValidateNotNullOrEmpty()]
     [string]$WorkspaceResourceId,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$AzureMonitorWorkspaceResourceId,
 
     [Parameter(Mandatory = $true)]
     [ValidateNotNullOrEmpty()]
@@ -107,12 +113,19 @@ if ($MyInvocation.InvocationName -ne '.') {
 
         $GrafanaParts = ConvertFrom-AzureResourceId -ResourceId $GrafanaResourceId
         $WorkspaceParts = ConvertFrom-AzureResourceId -ResourceId $WorkspaceResourceId
+        $AzureMonitorWorkspaceParts = ConvertFrom-AzureResourceId -ResourceId $AzureMonitorWorkspaceResourceId
         $NativeVmParts = ConvertFrom-AzureResourceId -ResourceId $NativeVmResourceId
         if ($GrafanaParts.ProviderNamespace -ne 'Microsoft.Dashboard' -or $GrafanaParts.ResourceType -ne 'grafana') {
             throw "GrafanaResourceId is not an Azure Managed Grafana resource ID: '$GrafanaResourceId'."
         }
         if ($WorkspaceParts.ProviderNamespace -ne 'Microsoft.OperationalInsights' -or $WorkspaceParts.ResourceType -ne 'workspaces') {
             throw "WorkspaceResourceId is not a Log Analytics workspace resource ID: '$WorkspaceResourceId'."
+        }
+        if (
+            $AzureMonitorWorkspaceParts.ProviderNamespace -ne 'Microsoft.Monitor' -or
+            $AzureMonitorWorkspaceParts.ResourceType -ne 'accounts'
+        ) {
+            throw "AzureMonitorWorkspaceResourceId is not an Azure Monitor workspace resource ID: '$AzureMonitorWorkspaceResourceId'."
         }
         if ($NativeVmParts.ProviderNamespace -ne 'Microsoft.Compute' -or $NativeVmParts.ResourceType -ne 'virtualMachines') {
             throw "NativeVmResourceId is not an Azure VM resource ID: '$NativeVmResourceId'."
@@ -121,6 +134,7 @@ if ($MyInvocation.InvocationName -ne '.') {
         foreach ($ReferencedSubscriptionId in @(
                 $GrafanaParts.SubscriptionId
                 $WorkspaceParts.SubscriptionId
+                $AzureMonitorWorkspaceParts.SubscriptionId
                 $NativeVmParts.SubscriptionId
             ) | Select-Object -Unique) {
             $ReferencedAccount = & $AzureCli account show `
@@ -146,6 +160,11 @@ if ($MyInvocation.InvocationName -ne '.') {
         & $AzureCli resource show --ids $WorkspaceResourceId --output none
         if ($LASTEXITCODE -ne 0) {
             throw "Unable to resolve Log Analytics workspace '$WorkspaceResourceId'."
+        }
+
+        & $AzureCli resource show --ids $AzureMonitorWorkspaceResourceId --output none
+        if ($LASTEXITCODE -ne 0) {
+            throw "Unable to resolve Azure Monitor workspace '$AzureMonitorWorkspaceResourceId'."
         }
 
         $NativeVmResource = & $AzureCli resource show --ids $NativeVmResourceId --output json | ConvertFrom-Json
@@ -194,10 +213,16 @@ if ($MyInvocation.InvocationName -ne '.') {
                     Sort-Object -Property isDefault -Descending |
                     Select-Object -First 1
                 $PrometheusDatasource = $Datasources |
-                    Where-Object { $_.type -eq 'prometheus' } |
+                    Where-Object {
+                        $_.type -eq 'prometheus' -and
+                        (
+                            [string]$_.uid -ieq $AzureMonitorWorkspaceParts.Name -or
+                            [string]$_.name -imatch [regex]::Escape($AzureMonitorWorkspaceParts.Name)
+                        )
+                    } |
                     Sort-Object -Property isDefault -Descending |
                     Select-Object -First 1
-                if ($null -ne $AzureMonitorDatasource) {
+                if ($null -ne $AzureMonitorDatasource -and $null -ne $PrometheusDatasource) {
                     break
                 }
             }
@@ -211,7 +236,7 @@ if ($MyInvocation.InvocationName -ne '.') {
             throw 'Azure Managed Grafana did not expose an Azure Monitor datasource within 10 minutes. Verify Grafana access and datasource configuration.'
         }
         if ($null -eq $PrometheusDatasource) {
-            Write-Warning 'Azure Managed Grafana has no Prometheus datasource. The dashboard will import, but its guest filesystem table remains unavailable until an Azure Monitor workspace is linked to the Grafana instance.'
+            throw "Azure Managed Grafana did not expose a Prometheus datasource for workspace '$AzureMonitorWorkspaceResourceId' within 10 minutes."
         }
 
         $DashboardJson = Get-Content -Path $DashboardFile -Raw

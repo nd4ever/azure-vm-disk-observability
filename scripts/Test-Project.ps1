@@ -39,6 +39,7 @@ if ($MyInvocation.InvocationName -ne '.') {
         $WorkbookPath = Join-Path $ProjectRoot 'workbooks/vm-disk-observability.workbook.json'
         $FreeWorkbookPath = Join-Path $ProjectRoot 'workbooks/vm-disk-observability-vmonly.workbook.json'
         $GrafanaPath = Join-Path $ProjectRoot 'grafana/vm-disk-observability.dashboard.json'
+        $MainBicepPath = Join-Path $ProjectRoot 'infra/main.bicep'
         $AlertBicepPath = Join-Path $ProjectRoot 'infra/alerts.bicep'
         $PolicyBicepPath = Join-Path $ProjectRoot 'infra/free-guest-metrics-policy.bicep'
         $DeploySolutionScriptPath = Join-Path $ProjectRoot 'scripts/Deploy-Solution.ps1'
@@ -176,6 +177,17 @@ if ($MyInvocation.InvocationName -ne '.') {
         if ($GuestFilesystemCapacity.Count -ne 1) {
             throw 'The free Workbook must contain one guest filesystem capacity table.'
         }
+        $GuestDiskHeading = @(
+            $FreeWorkbook.items |
+                Where-Object { $_.name -eq 'GuestDiskHeading' }
+        )
+        if (
+            $GuestDiskHeading.Count -ne 1 -or
+            $GuestDiskHeading[0].content.json -notmatch 'default OpenTelemetry metrics; no additional collection charge' -or
+            $GuestDiskHeading[0].content.json -notmatch 'logs-based VM Insights and Log Analytics'
+        ) {
+            throw 'The free Workbook must describe the default OpenTelemetry metric cost boundary precisely.'
+        }
         $GuestFilesystemCapacityQuery = $GuestFilesystemCapacity[0].content.query | ConvertFrom-Json
         $GuestFilesystemValueLabel = @(
             $GuestFilesystemCapacity[0].content.gridSettings.labelSettings |
@@ -219,6 +231,7 @@ if ($MyInvocation.InvocationName -ne '.') {
         }
         $PolicyBicepSource = Get-Content -Path $PolicyBicepPath -Raw
         $PolicyScriptSource = Get-Content -Path $PolicyScriptPath -Raw
+        $MainBicepSource = Get-Content -Path $MainBicepPath -Raw
         $DeploySolutionScriptSource = Get-Content -Path $DeploySolutionScriptPath -Raw
         $GrafanaImportScriptSource = Get-Content -Path $GrafanaImportScriptPath -Raw
         $ExpectedPolicyDefinitionIds = @(
@@ -237,19 +250,40 @@ if ($MyInvocation.InvocationName -ne '.') {
             $PolicyBicepSource -notmatch "kind:\s*'resourceLocation'" -or
             $PolicyScriptSource -notmatch "Prompt 'Management group name'" -or
             $PolicyScriptSource -notmatch "Get-Date -AsUTC -Format 'yyyyMMddHHmmssfff'" -or
-            $PolicyScriptSource -notmatch 'performanceCountersOTel'
+            $PolicyScriptSource -notmatch 'performanceCountersOTel' -or
+            $PolicyScriptSource -notmatch 'dataFlows'
         ) {
             throw 'Free guest metrics policy must use management-group scope, a resource-location selector, validated OTel counters, unique remediations, and an interactive management-group prompt.'
         }
         if (
             $DeploySolutionScriptSource -notmatch '(?s)\$DeployFreeGuestMetrics\s*=\s*if\s*\(\$SelectedArtifacts\).+?else\s*\{\s*\$false\s*\}' -or
             $DeploySolutionScriptSource -notmatch 'monitoringAccounts' -or
-            $DeploySolutionScriptSource -notmatch 'performanceCountersOTel'
+            $DeploySolutionScriptSource -notmatch 'performanceCountersOTel' -or
+            $DeploySolutionScriptSource -notmatch "ProviderNamespace 'Microsoft\.Monitor'" -or
+            $DeploySolutionScriptSource -notmatch "ProviderNamespace 'Microsoft\.Insights'" -or
+            $DeploySolutionScriptSource -notmatch "RoleName 'Monitoring Data Reader'" -or
+            $DeploySolutionScriptSource -notmatch "RoleName 'Log Analytics Reader'" -or
+            $DeploySolutionScriptSource -notmatch "'grafana', 'integration', 'monitor', 'add'" -or
+            $DeploySolutionScriptSource -notmatch 'Assert-FreeGuestMetricsDcr' -or
+            $DeploySolutionScriptSource -notmatch 'Microsoft-OtelPerfMetrics data flow'
         ) {
-            throw 'The unified deployment must keep management-group policy opt-in and validate the DCR destination and counters.'
+            throw 'The unified deployment must keep policy opt-in and create, connect, authorize, and validate regional guest metric prerequisites.'
         }
-        if ($GrafanaImportScriptSource -notmatch "type -eq 'prometheus'") {
-            throw 'The Grafana import must detect whether a Prometheus datasource is configured.'
+        if (
+            $GrafanaImportScriptSource -notmatch "type -eq 'prometheus'" -or
+            $GrafanaImportScriptSource -notmatch '\$AzureMonitorWorkspaceParts\.Name' -or
+            $GrafanaImportScriptSource -notmatch 'did not expose a Prometheus datasource' -or
+            $GrafanaImportScriptSource -match 'dashboard will import'
+        ) {
+            throw 'The Grafana import must require the Prometheus datasource for the selected Azure Monitor workspace.'
+        }
+        if (
+            $MainBicepSource -notmatch "Microsoft\.Monitor/accounts@2023-04-03" -or
+            $MainBicepSource -notmatch "Microsoft\.Insights/dataCollectionRules@2024-03-11" -or
+            $MainBicepSource -notmatch 'shouldDeployAzureMonitorWorkspace' -or
+            $MainBicepSource -notmatch 'shouldDeployFreeGuestMetricsDcr'
+        ) {
+            throw 'The main Bicep template must support conditional Azure Monitor workspace and OpenTelemetry DCR creation.'
         }
 
         $WorkbookMetricItems = @($Workbook.items | Where-Object { $_.type -eq 10 })
@@ -317,6 +351,17 @@ if ($MyInvocation.InvocationName -ne '.') {
         if ($NormalizedDeviceLabelCount -lt 2) {
             throw 'The Grafana guest filesystem panel must normalize Linux /dev device labels before joining disk and filesystem metrics.'
         }
+        $CaseSensitiveNativeVmFilter = '"microsoft.resourceid"="/subscriptions/$subscription/resourcegroups/$resourceGroup/providers/microsoft.compute/virtualmachines/$nativeVm"'
+        $CaseInsensitiveNativeVmFilter = '"microsoft.resourceid"=~"(?i)^/subscriptions/$subscription/resourcegroups/$resourceGroup/providers/microsoft.compute/virtualmachines/$nativeVm$"'
+        if (
+            $GrafanaGuestFilesystemExpression.Contains($CaseSensitiveNativeVmFilter) -or
+            -not $GrafanaGuestFilesystemExpression.Contains($CaseInsensitiveNativeVmFilter)
+        ) {
+            throw 'The Grafana guest filesystem panel must match normalized Azure resource IDs with a case-insensitive anchored regex.'
+        }
+        if ($GrafanaGuestFilesystemPanels[0].description -notmatch 'no additional collection charge') {
+            throw 'The Grafana guest filesystem panel must describe the default OpenTelemetry metric cost boundary precisely.'
+        }
 
         $DeploymentSourcePaths = @(
             (Join-Path $ProjectRoot 'README.md')
@@ -349,6 +394,51 @@ if ($MyInvocation.InvocationName -ne '.') {
             if ($LASTEXITCODE -ne 0) {
                 throw "Bicep template compilation failed for '$($BicepFile.Name)'."
             }
+        }
+
+        $CompiledMainTemplate = & $AzureCli bicep build --file $MainBicepPath --stdout | ConvertFrom-Json -Depth 100
+        if ($LASTEXITCODE -ne 0) {
+            throw 'Main Bicep template compilation failed.'
+        }
+        $CompiledAzureMonitorWorkspace = $CompiledMainTemplate.resources.azureMonitorWorkspace
+        $CompiledFreeGuestMetricsDcr = $CompiledMainTemplate.resources.freeGuestMetricsDcr
+        if (
+            $CompiledAzureMonitorWorkspace.type -ne 'Microsoft.Monitor/accounts' -or
+            $CompiledAzureMonitorWorkspace.apiVersion -ne '2023-04-03' -or
+            $CompiledFreeGuestMetricsDcr.type -ne 'Microsoft.Insights/dataCollectionRules' -or
+            $CompiledFreeGuestMetricsDcr.apiVersion -ne '2024-03-11'
+        ) {
+            throw 'The main template must compile the supported Azure Monitor workspace and DCR resource types.'
+        }
+        $CompiledOtelDataSources = @(
+            $CompiledFreeGuestMetricsDcr.properties.dataSources.performanceCountersOTel
+        )
+        $CompiledOtelCounters = @($CompiledOtelDataSources.counterSpecifiers)
+        $ExpectedOtelDiskCounters = @(
+            'system.filesystem.usage'
+            'system.disk.io'
+            'system.disk.operations'
+            'system.disk.operation_time'
+        )
+        $MissingCompiledOtelDiskCounters = @(
+            $ExpectedOtelDiskCounters |
+                Where-Object { $CompiledOtelCounters -notcontains $_ }
+        )
+        if (
+            $CompiledOtelDataSources.Count -ne 1 -or
+            $CompiledOtelDataSources[0].samplingFrequencyInSeconds -ne 60 -or
+            $CompiledOtelDataSources[0].streams -notcontains 'Microsoft-OtelPerfMetrics' -or
+            $MissingCompiledOtelDiskCounters.Count -gt 0 -or
+            @($CompiledFreeGuestMetricsDcr.properties.destinations.monitoringAccounts).Count -ne 1 -or
+            @(
+                $CompiledFreeGuestMetricsDcr.properties.dataFlows |
+                    Where-Object {
+                        $_.streams -contains 'Microsoft-OtelPerfMetrics' -and
+                        $_.destinations -contains 'monitoringAccountDestination'
+                    }
+            ).Count -ne 1
+        ) {
+            throw 'The generated DCR must send the required default OpenTelemetry disk counters to one Azure Monitor workspace every 60 seconds.'
         }
 
         $CompiledAlertTemplate = & $AzureCli bicep build --file $AlertBicepPath --stdout | ConvertFrom-Json -Depth 100
