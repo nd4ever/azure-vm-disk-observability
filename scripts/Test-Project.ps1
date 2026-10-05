@@ -272,6 +272,8 @@ if ($MyInvocation.InvocationName -ne '.') {
         if (
             $GrafanaImportScriptSource -notmatch "type -eq 'prometheus'" -or
             $GrafanaImportScriptSource -notmatch '\$AzureMonitorWorkspaceParts\.Name' -or
+            $GrafanaImportScriptSource -notmatch '__PROMETHEUS_DATASOURCE_UID__.*\$PrometheusDatasource\.uid' -or
+            $GrafanaImportScriptSource -notmatch '__PROMETHEUS_DATASOURCE_NAME__.*\$PrometheusDatasource\.name' -or
             $GrafanaImportScriptSource -notmatch 'did not expose a Prometheus datasource' -or
             $GrafanaImportScriptSource -match 'dashboard will import'
         ) {
@@ -331,17 +333,18 @@ if ($MyInvocation.InvocationName -ne '.') {
             throw 'Both Azure Workbooks must contain one provisioned disk inventory table.'
         }
         foreach ($DiskInventoryItem in $WorkbookDiskInventoryItems) {
-            $TierLabel = @(
+            $DiskTypeLabel = @(
                 $DiskInventoryItem.content.gridSettings.labelSettings |
-                    Where-Object { $_.columnId -eq 'Tier' }
+                    Where-Object { $_.columnId -eq 'DiskType' }
             )
             if (
                 $DiskInventoryItem.content.query -notmatch 'coalesce\(tostring\(properties\.tier\)' -or
                 $DiskInventoryItem.content.query -notmatch "'P10'" -or
-                $TierLabel.Count -ne 1 -or
-                $TierLabel[0].label -ne 'Performance tier'
+                $DiskInventoryItem.content.query -notmatch "DiskType = strcat\(Sku, ' \(', Tier, '\)'\)" -or
+                $DiskTypeLabel.Count -ne 1 -or
+                $DiskTypeLabel[0].label -ne 'Disk type / tier'
             ) {
-                throw "Workbook disk inventory '$($DiskInventoryItem.name)' must show explicit or size-derived performance tiers."
+                throw "Workbook disk inventory '$($DiskInventoryItem.name)' must combine the storage SKU with its explicit or size-derived performance tier."
             }
         }
 
@@ -352,9 +355,22 @@ if ($MyInvocation.InvocationName -ne '.') {
         if (
             $GrafanaDiskInventoryPanels.Count -ne 1 -or
             $GrafanaDiskInventoryPanels[0].targets[0].azureResourceGraph.query -notmatch 'coalesce\(tostring\(properties\.tier\)' -or
-            $GrafanaDiskInventoryPanels[0].targets[0].azureResourceGraph.query -notmatch "'P10'"
+            $GrafanaDiskInventoryPanels[0].targets[0].azureResourceGraph.query -notmatch "'P10'" -or
+            $GrafanaDiskInventoryPanels[0].targets[0].azureResourceGraph.query -notmatch "DiskType = strcat\(Sku, ' \(', Tier, '\)'\)"
         ) {
-            throw 'The Grafana provisioned disk inventory must show explicit or size-derived performance tiers.'
+            throw 'The Grafana provisioned disk inventory must combine the storage SKU with its explicit or size-derived performance tier.'
+        }
+
+        $GrafanaPrometheusVariables = @(
+            $Grafana.templating.list |
+                Where-Object { $_.name -eq 'prom_ds' }
+        )
+        if (
+            $GrafanaPrometheusVariables.Count -ne 1 -or
+            $GrafanaPrometheusVariables[0].current.text -ne '__PROMETHEUS_DATASOURCE_NAME__' -or
+            $GrafanaPrometheusVariables[0].current.value -ne '__PROMETHEUS_DATASOURCE_UID__'
+        ) {
+            throw 'The Grafana guest metrics datasource variable must default to the imported Azure Monitor workspace datasource.'
         }
 
         $GrafanaCustomAllVariables = @(

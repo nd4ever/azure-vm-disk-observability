@@ -246,6 +246,8 @@ if ($MyInvocation.InvocationName -ne '.') {
         }
         $Replacements = [ordered]@{
             '__AZURE_MONITOR_DATASOURCE_UID__' = $AzureMonitorDatasource.uid
+            '__PROMETHEUS_DATASOURCE_NAME__' = $PrometheusDatasource.name
+            '__PROMETHEUS_DATASOURCE_UID__' = $PrometheusDatasource.uid
             '__WORKSPACE_RESOURCE_ID__' = $WorkspaceResourceId
             '__WORKSPACE_SUBSCRIPTION_ID__' = $WorkspaceParts.SubscriptionId
             '__AZURE_VM_SUBSCRIPTION_ID__' = $NativeVmParts.SubscriptionId
