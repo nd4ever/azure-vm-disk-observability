@@ -1101,6 +1101,12 @@
       "title": "Native Azure VM guest disk performance and capacity",
       "transformations": [
         {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns"
+          }
+        },
+        {
           "id": "groupingToMatrix",
           "options": {
             "columnField": "stat",

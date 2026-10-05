@@ -392,6 +392,15 @@ if ($MyInvocation.InvocationName -ne '.') {
         if ($GrafanaGuestFilesystemPanels.Count -ne 1) {
             throw 'The Grafana dashboard must contain one guest filesystem panel with ID 37.'
         }
+        $GrafanaGuestFilesystemTransformations = @($GrafanaGuestFilesystemPanels[0].transformations)
+        if (
+            $GrafanaGuestFilesystemTransformations.Count -lt 2 -or
+            $GrafanaGuestFilesystemTransformations[0].id -ne 'labelsToFields' -or
+            $GrafanaGuestFilesystemTransformations[0].options.mode -ne 'columns' -or
+            $GrafanaGuestFilesystemTransformations[1].id -ne 'groupingToMatrix'
+        ) {
+            throw 'The Grafana guest filesystem panel must convert Prometheus labels to fields before pivoting them into disk rows.'
+        }
         $GrafanaGuestFilesystemExpression = [string]$GrafanaGuestFilesystemPanels[0].targets[0].expr
         $NormalizedDeviceLabelCount = (
             [regex]::Matches(
