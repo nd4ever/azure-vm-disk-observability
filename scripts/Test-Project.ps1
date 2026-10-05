@@ -322,6 +322,41 @@ if ($MyInvocation.InvocationName -ne '.') {
             throw 'Grafana Log Analytics targets must use singular resource and a target-level subscription.'
         }
 
+        $WorkbookDiskInventoryItems = @(
+            @($Workbook, $FreeWorkbook) |
+                ForEach-Object { $_.items } |
+                Where-Object { $_.name -eq 'DiskProvisionedLimits' }
+        )
+        if ($WorkbookDiskInventoryItems.Count -ne 2) {
+            throw 'Both Azure Workbooks must contain one provisioned disk inventory table.'
+        }
+        foreach ($DiskInventoryItem in $WorkbookDiskInventoryItems) {
+            $TierLabel = @(
+                $DiskInventoryItem.content.gridSettings.labelSettings |
+                    Where-Object { $_.columnId -eq 'Tier' }
+            )
+            if (
+                $DiskInventoryItem.content.query -notmatch 'coalesce\(tostring\(properties\.tier\)' -or
+                $DiskInventoryItem.content.query -notmatch "'P10'" -or
+                $TierLabel.Count -ne 1 -or
+                $TierLabel[0].label -ne 'Performance tier'
+            ) {
+                throw "Workbook disk inventory '$($DiskInventoryItem.name)' must show explicit or size-derived performance tiers."
+            }
+        }
+
+        $GrafanaDiskInventoryPanels = @(
+            $Grafana.panels |
+                Where-Object { $_.id -eq 12 }
+        )
+        if (
+            $GrafanaDiskInventoryPanels.Count -ne 1 -or
+            $GrafanaDiskInventoryPanels[0].targets[0].azureResourceGraph.query -notmatch 'coalesce\(tostring\(properties\.tier\)' -or
+            $GrafanaDiskInventoryPanels[0].targets[0].azureResourceGraph.query -notmatch "'P10'"
+        ) {
+            throw 'The Grafana provisioned disk inventory must show explicit or size-derived performance tiers.'
+        }
+
         $GrafanaCustomAllVariables = @(
             $Grafana.templating.list |
                 Where-Object {

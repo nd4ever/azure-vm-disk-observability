@@ -1190,7 +1190,7 @@
         "type": "grafana-azure-monitor-datasource",
         "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
       },
-      "description": "Provisioned maximum IOPS and throughput for each disk attached to the native Azure VM, read live from the disk SKU with Azure Resource Graph.",
+      "description": "Storage SKU, performance tier, size, and provisioned maximum IOPS and throughput for each disk attached to the native Azure VM, read live with Azure Resource Graph.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -1216,7 +1216,7 @@
       "targets": [
         {
           "azureResourceGraph": {
-            "query": "resources\n| where type =~ 'microsoft.compute/disks'\n| extend VM = tostring(split(managedBy, '/')[-1])\n| where VM =~ '$nativeVm'\n| project VM, DiskName = name, Sku = tostring(sku.name), SizeGiB = toint(properties.diskSizeGB), MaxIOPS = toint(properties.diskIOPSReadWrite), MaxThroughputMBps = toint(properties.diskMBpsReadWrite)\n| order by MaxIOPS desc",
+            "query": "resources\n| where type =~ 'microsoft.compute/disks'\n| extend VM = tostring(split(managedBy, '/')[-1]), Sku = tostring(sku.name), SizeGiB = toint(properties.diskSizeGB)\n| where VM =~ '$nativeVm'\n| extend Tier = coalesce(tostring(properties.tier), case(Sku in~ ('Premium_LRS', 'Premium_ZRS'), case(SizeGiB <= 4, 'P1', SizeGiB <= 8, 'P2', SizeGiB <= 16, 'P3', SizeGiB <= 32, 'P4', SizeGiB <= 64, 'P6', SizeGiB <= 128, 'P10', SizeGiB <= 256, 'P15', SizeGiB <= 512, 'P20', SizeGiB <= 1024, 'P30', SizeGiB <= 2048, 'P40', SizeGiB <= 4096, 'P50', SizeGiB <= 8192, 'P60', SizeGiB <= 16384, 'P70', 'P80'), Sku in~ ('StandardSSD_LRS', 'StandardSSD_ZRS'), case(SizeGiB <= 4, 'E1', SizeGiB <= 8, 'E2', SizeGiB <= 16, 'E3', SizeGiB <= 32, 'E4', SizeGiB <= 64, 'E6', SizeGiB <= 128, 'E10', SizeGiB <= 256, 'E15', SizeGiB <= 512, 'E20', SizeGiB <= 1024, 'E30', SizeGiB <= 2048, 'E40', SizeGiB <= 4096, 'E50', SizeGiB <= 8192, 'E60', SizeGiB <= 16384, 'E70', 'E80'), Sku =~ 'Standard_LRS', case(SizeGiB <= 32, 'S4', SizeGiB <= 64, 'S6', SizeGiB <= 128, 'S10', SizeGiB <= 256, 'S15', SizeGiB <= 512, 'S20', SizeGiB <= 1024, 'S30', SizeGiB <= 2048, 'S40', SizeGiB <= 4096, 'S50', SizeGiB <= 8192, 'S60', SizeGiB <= 16384, 'S70', 'S80'), 'Configurable'))\n| project VM, DiskName = name, Sku, Tier, SizeGiB, MaxIOPS = toint(properties.diskIOPSReadWrite), MaxThroughputMBps = toint(properties.diskMBpsReadWrite)\n| order by MaxIOPS desc",
             "resultFormat": "table"
           },
           "datasource": {
