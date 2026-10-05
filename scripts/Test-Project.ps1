@@ -273,7 +273,6 @@ if ($MyInvocation.InvocationName -ne '.') {
             $GrafanaImportScriptSource -notmatch "type -eq 'prometheus'" -or
             $GrafanaImportScriptSource -notmatch '\$AzureMonitorWorkspaceParts\.Name' -or
             $GrafanaImportScriptSource -notmatch '__PROMETHEUS_DATASOURCE_UID__.*\$PrometheusDatasource\.uid' -or
-            $GrafanaImportScriptSource -notmatch '__PROMETHEUS_DATASOURCE_NAME__.*\$PrometheusDatasource\.name' -or
             $GrafanaImportScriptSource -notmatch 'did not expose a Prometheus datasource' -or
             $GrafanaImportScriptSource -match 'dashboard will import'
         ) {
@@ -361,18 +360,6 @@ if ($MyInvocation.InvocationName -ne '.') {
             throw 'The Grafana provisioned disk inventory must combine the storage SKU with its explicit or size-derived performance tier.'
         }
 
-        $GrafanaPrometheusVariables = @(
-            $Grafana.templating.list |
-                Where-Object { $_.name -eq 'prom_ds' }
-        )
-        if (
-            $GrafanaPrometheusVariables.Count -ne 1 -or
-            $GrafanaPrometheusVariables[0].current.text -ne '__PROMETHEUS_DATASOURCE_NAME__' -or
-            $GrafanaPrometheusVariables[0].current.value -ne '__PROMETHEUS_DATASOURCE_UID__'
-        ) {
-            throw 'The Grafana guest metrics datasource variable must default to the imported Azure Monitor workspace datasource.'
-        }
-
         $GrafanaCustomAllVariables = @(
             $Grafana.templating.list |
                 Where-Object {
@@ -391,6 +378,12 @@ if ($MyInvocation.InvocationName -ne '.') {
         )
         if ($GrafanaGuestFilesystemPanels.Count -ne 1) {
             throw 'The Grafana dashboard must contain one guest filesystem panel with ID 37.'
+        }
+        if (
+            $GrafanaGuestFilesystemPanels[0].datasource.uid -ne '__PROMETHEUS_DATASOURCE_UID__' -or
+            $GrafanaGuestFilesystemPanels[0].targets[0].datasource.uid -ne '__PROMETHEUS_DATASOURCE_UID__'
+        ) {
+            throw 'The Grafana guest filesystem panel must bind directly to the imported Azure Monitor workspace datasource.'
         }
         $GrafanaGuestFilesystemTransformations = @($GrafanaGuestFilesystemPanels[0].transformations)
         if (

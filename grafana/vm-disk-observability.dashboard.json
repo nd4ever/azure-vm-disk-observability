@@ -931,7 +931,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "${prom_ds}"
+        "uid": "__PROMETHEUS_DATASOURCE_UID__"
       },
       "description": "Guest filesystem capacity and disk performance for the selected native Azure VM. Microsoft lists this default OpenTelemetry metric set as having no additional collection charge. Separate charges can apply to VM compute, Azure Managed Grafana, alerts, logs-based VM Insights and Log Analytics, and additional or per-process OpenTelemetry metrics. Requires Azure Monitor Agent metrics-based enhanced monitoring, an Azure Monitor workspace, and a connected Prometheus data source. The table summarizes samples in the selected Grafana time range; it is empty when the range predates guest-metric onboarding or the VM did not publish during that range. Device-to-mount mapping might be incomplete for LVM, Storage Spaces, striped, multipath, or similar volume layouts.",
       "fieldConfig": {
@@ -1082,7 +1082,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "${prom_ds}"
+            "uid": "__PROMETHEUS_DATASOURCE_UID__"
           },
           "disableTextWrap": false,
           "editorMode": "code",
@@ -2944,20 +2944,6 @@
   ],
   "templating": {
     "list": [
-      {
-        "current": {
-          "selected": true,
-          "text": "__PROMETHEUS_DATASOURCE_NAME__",
-          "value": "__PROMETHEUS_DATASOURCE_UID__"
-        },
-        "label": "Guest metrics data source",
-        "name": "prom_ds",
-        "options": [],
-        "query": "prometheus",
-        "refresh": 1,
-        "regex": "",
-        "type": "datasource"
-      },
       {
         "current": {},
         "datasource": {
