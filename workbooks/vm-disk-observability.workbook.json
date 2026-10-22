@@ -188,7 +188,7 @@
       "type": 1,
       "name": "DiagnosisHeading",
       "content": {
-        "json": "## Throttling diagnosis \u2014 disk limit or VM SKU limit?\n\nThese charts show the **peak consumed percentage** (Maximum) over the selected time range for the selected VM. A line reaching ~100% means that ceiling was hit.\n\n* **A DISK chart reaches ~100%** \u2192 an individual data disk hit its own provisioned IOPS or bandwidth limit \u2192 resize or upgrade that disk. Each line is one LUN, so you can see which disk.\n* **A VM SKU chart reaches ~100%** \u2192 the VM hit its aggregate IOPS or bandwidth limit across all disks \u2192 resize the VM.\n* **Both high** \u2192 the disk is saturating and rolling up to the VM limit too.\n\nUse the detailed trend charts below for per-LUN latency and cached/uncached breakdowns.\n\n_These charts show the peak over the selected time range \u2014 the worst moment, not the current state. Narrow the time range to see current activity._"
+        "json": "## Throttling diagnosis: disk limit or VM SKU limit?\n\nThese charts show the **peak consumed percentage** (Maximum) over the selected time range for the selected VM. A line reaching ~100% means that ceiling was hit.\n\n* A DISK chart reaches ~100%: the OS disk or an individual data disk hit its own provisioned IOPS or bandwidth limit. Resize or upgrade that disk. The OS disk is a separate series; data disks are split by LUN.\n* A VM SKU chart reaches ~100%: the VM hit its aggregate IOPS or bandwidth limit across all disks. Resize the VM.\n* Both high: the disk is saturating and rolling up to the VM limit too.\n\nA VM without data disks has no data-disk series. Missing or unsupported metrics are **not zero utilization**. Use the detailed trend charts below for OS-disk, per-LUN, and cached/uncached breakdowns.\n\n_These charts show the peak over the selected time range, not the current state. Narrow the time range to see current activity._"
       }
     },
     {
@@ -218,6 +218,11 @@
             "splitBy": "LUN",
             "splitBySortOrder": -1,
             "splitByLimit": 50
+          },
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--OS Disk IOPS Consumed Percentage",
+            "aggregation": 3
           }
         ]
       }
@@ -249,6 +254,11 @@
             "splitBy": "LUN",
             "splitBySortOrder": -1,
             "splitByLimit": 50
+          },
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--OS Disk Bandwidth Consumed Percentage",
+            "aggregation": 3
           }
         ]
       }
@@ -323,7 +333,7 @@
       "type": 1,
       "name": "TrendsHeading",
       "content": {
-        "json": "## Detailed throttling trends (consumed %)\n\nPer-LUN and cached/uncached breakdowns to pinpoint when throttling occurred and which disk or VM ceiling was involved. Data Disk Latency is a preview metric and requires SCSI-attached disks; it is unavailable for NVMe-attached disks."
+        "json": "## Detailed throttling trends (consumed %)\n\nOS-disk, data-disk per-LUN, and cached/uncached breakdowns to pinpoint when throttling occurred and which disk or VM ceiling was involved. The OS disk has no LUN dimension. Data Disk Latency is a preview metric and requires SCSI-attached disks; it is unavailable for NVMe-attached disks."
       }
     },
     {
@@ -334,7 +344,7 @@
         "version": "MetricsItem/2.0",
         "size": 0,
         "chartType": 2,
-        "title": "Data disk IOPS consumed by LUN (%) \u2014 {VirtualMachines:label}",
+        "title": "IOPS consumed: OS disk and data-disk LUNs (%) \u2014 {VirtualMachines:label}",
         "resourceIds": [
           "{VirtualMachines}"
         ],
@@ -352,6 +362,11 @@
             "splitBy": "LUN",
             "splitBySortOrder": -1,
             "splitByLimit": 50
+          },
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--OS Disk IOPS Consumed Percentage",
+            "aggregation": 3
           }
         ]
       },
@@ -365,7 +380,7 @@
         "version": "MetricsItem/2.0",
         "size": 0,
         "chartType": 2,
-        "title": "Data disk bandwidth consumed by LUN (%) \u2014 {VirtualMachines:label}",
+        "title": "Bandwidth consumed: OS disk and data-disk LUNs (%) \u2014 {VirtualMachines:label}",
         "resourceIds": [
           "{VirtualMachines}"
         ],
@@ -383,6 +398,11 @@
             "splitBy": "LUN",
             "splitBySortOrder": -1,
             "splitByLimit": 50
+          },
+          {
+            "namespace": "microsoft.compute/virtualmachines",
+            "metric": "microsoft.compute/virtualmachines--OS Disk Bandwidth Consumed Percentage",
+            "aggregation": 3
           }
         ]
       },

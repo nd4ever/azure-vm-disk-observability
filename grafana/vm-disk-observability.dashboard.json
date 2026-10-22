@@ -27,13 +27,25 @@
         "type": "grafana-azure-monitor-datasource",
         "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
       },
-      "description": "Peak Data Disk IOPS consumed % across all data disks. Red (≥95%) means an individual disk is hitting its own provisioned IOPS limit.",
+      "description": "Peak IOPS consumed %, shown separately for the OS disk and data disks. Data disk is the worst data-disk value. Red (≥95%) means that disk scope is hitting its provisioned IOPS limit. Missing metrics are not zero utilization.",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "thresholds"
           },
-          "mappings": [],
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "color": "gray",
+                  "text": "No data"
+                }
+              }
+            }
+          ],
+          "noValue": "No data",
           "max": 100,
           "min": 0,
           "thresholds": {
@@ -107,6 +119,34 @@
           "refId": "A",
           "subscription": "$subscription",
           "subscriptions": []
+        },
+        {
+          "azureMonitor": {
+            "aggregation": "Maximum",
+            "alias": "OS disk",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "metricName": "OS Disk IOPS Consumed Percentage",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "B",
+          "subscription": "$subscription",
+          "subscriptions": []
         }
       ],
       "title": "DISK — IOPS",
@@ -117,13 +157,25 @@
         "type": "grafana-azure-monitor-datasource",
         "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
       },
-      "description": "Peak Data Disk bandwidth consumed % across all data disks. Red (≥95%) means an individual disk is hitting its own provisioned bandwidth limit.",
+      "description": "Peak bandwidth consumed %, shown separately for the OS disk and data disks. Data disk is the worst data-disk value. Red (≥95%) means that disk scope is hitting its provisioned bandwidth limit. Missing metrics are not zero utilization.",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "thresholds"
           },
-          "mappings": [],
+          "mappings": [
+            {
+              "type": "special",
+              "options": {
+                "match": "null",
+                "result": {
+                  "color": "gray",
+                  "text": "No data"
+                }
+              }
+            }
+          ],
+          "noValue": "No data",
           "max": 100,
           "min": 0,
           "thresholds": {
@@ -195,6 +247,34 @@
           },
           "queryType": "Azure Monitor",
           "refId": "A",
+          "subscription": "$subscription",
+          "subscriptions": []
+        },
+        {
+          "azureMonitor": {
+            "aggregation": "Maximum",
+            "alias": "OS disk",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "metricName": "OS Disk Bandwidth Consumed Percentage",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "B",
           "subscription": "$subscription",
           "subscriptions": []
         }
@@ -456,7 +536,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "Each tile shows the **peak consumed %** over the selected time range. **≥95% for 5+ minutes = throttling** at that scope.\n\n- **A DISK tile is red** → an individual data disk hit its own IOPS/bandwidth SKU limit → **resize or upgrade that disk**.\n- **A VM SKU tile is red** → the VM hit its aggregate IOPS/bandwidth limit across all disks → **resize the VM**.\n- **Both red** → the disk is saturating and rolling up to the VM limit too. Use the trend charts below to see when it happened and which LUN.\n\nThese tiles show the **peak** over the selected time range — the worst moment, not the current state. Narrow the time range (for example, Last 1 hour) to see current activity.",
+        "content": "Each tile shows the **peak consumed %** over the selected time range. **≥95% for 5+ minutes = throttling** at that scope.\n\n- **A DISK tile is red** → the OS disk or an individual data disk hit its own IOPS/bandwidth SKU limit → **resize or upgrade that disk**. OS disk and Data disk values are separate; Data disk represents the worst data disk.\n- **A VM SKU tile is red** → the VM hit its aggregate IOPS/bandwidth limit across all disks → **resize the VM**.\n- **Both red** → the disk is saturating and rolling up to the VM limit too. Use the trend charts below to identify the OS disk or data-disk LUN.\n\nA VM without data disks has no Data disk series. Missing or unsupported metrics are **not zero utilization**. These tiles show the **peak** over the selected time range, not the current state. Narrow the time range (for example, Last 1 hour) to see current activity.",
         "mode": "markdown"
       },
       "pluginVersion": "12.4.8",
@@ -477,7 +557,7 @@
       "type": "row"
     },
     {
-      "description": "Percentage of the provisioned data disk IOPS consumed, split by LUN.",
+      "description": "Percentage of provisioned IOPS consumed: OS disk plus data disks split by LUN. The OS disk has no LUN dimension.",
       "datasource": {
         "type": "grafana-azure-monitor-datasource",
         "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
@@ -554,13 +634,41 @@
           "refId": "A",
           "subscription": "$subscription",
           "subscriptions": []
+        },
+        {
+          "azureMonitor": {
+            "aggregation": "Maximum",
+            "alias": "OS disk",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "metricName": "OS Disk IOPS Consumed Percentage",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "B",
+          "subscription": "$subscription",
+          "subscriptions": []
         }
       ],
-      "title": "IOPS consumed by LUN",
+      "title": "IOPS consumed: OS disk and data-disk LUNs",
       "type": "timeseries"
     },
     {
-      "description": "Percentage of the provisioned data disk bandwidth consumed, split by LUN.",
+      "description": "Percentage of provisioned bandwidth consumed: OS disk plus data disks split by LUN. The OS disk has no LUN dimension.",
       "datasource": {
         "type": "grafana-azure-monitor-datasource",
         "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
@@ -637,9 +745,37 @@
           "refId": "A",
           "subscription": "$subscription",
           "subscriptions": []
+        },
+        {
+          "azureMonitor": {
+            "aggregation": "Maximum",
+            "alias": "OS disk",
+            "allowedTimeGrainsMs": [],
+            "customNamespace": "Microsoft.Compute/virtualMachines",
+            "metricName": "OS Disk Bandwidth Consumed Percentage",
+            "metricNamespace": "Microsoft.Compute/virtualMachines",
+            "resources": [
+              {
+                "metricNamespace": "Microsoft.Compute/virtualMachines",
+                "region": "",
+                "resourceGroup": "$resourceGroup",
+                "resourceName": "$nativeVm",
+                "subscription": "$subscription"
+              }
+            ],
+            "timeGrain": "auto"
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "B",
+          "subscription": "$subscription",
+          "subscriptions": []
         }
       ],
-      "title": "Bandwidth consumed by LUN",
+      "title": "Bandwidth consumed: OS disk and data-disk LUNs",
       "type": "timeseries"
     },
     {

@@ -302,6 +302,99 @@ if ($MyInvocation.InvocationName -ne '.') {
             throw "Workbook metric items must use MetricsItem/2.0 with an explicit VirtualMachines binding: $($InvalidWorkbookMetricItems.name -join ', ')."
         }
 
+        $DiskMetricExpectations = @(
+            @{ GrafanaId = 23; WorkbookName = 'DiagDiskIops'; Metric = 'IOPS' }
+            @{ GrafanaId = 24; WorkbookName = 'DiagDiskBw'; Metric = 'Bandwidth' }
+            @{ GrafanaId = 8; WorkbookName = 'LunIopsConsumed'; Metric = 'IOPS' }
+            @{ GrafanaId = 9; WorkbookName = 'LunBandwidthConsumed'; Metric = 'Bandwidth' }
+        )
+        foreach ($Expectation in $DiskMetricExpectations) {
+            $OsMetricName = "OS Disk $($Expectation.Metric) Consumed Percentage"
+            $DataMetricName = "Data Disk $($Expectation.Metric) Consumed Percentage"
+            $DiskPanels = @($Grafana.panels | Where-Object { $_.id -eq $Expectation.GrafanaId })
+            if ($DiskPanels.Count -ne 1) {
+                throw "Grafana must contain one disk panel with ID $($Expectation.GrafanaId)."
+            }
+            $DiskPanel = $DiskPanels[0]
+            $OsTargets = @($DiskPanel.targets | Where-Object { $_.azureMonitor.metricName -eq $OsMetricName })
+            $DataTargets = @($DiskPanel.targets | Where-Object { $_.azureMonitor.metricName -eq $DataMetricName })
+            if (
+                @($DiskPanel.targets).Count -ne 2 -or
+                $OsTargets.Count -ne 1 -or
+                $DataTargets.Count -ne 1 -or
+                @($DiskPanel.targets.refId | Select-Object -Unique).Count -ne 2
+            ) {
+                throw "Grafana disk panel $($Expectation.GrafanaId) must query OS and data disks separately with unique refIds."
+            }
+            if (
+                $OsTargets[0].azureMonitor.alias -ne 'OS disk' -or
+                $OsTargets[0].azureMonitor.PSObject.Properties.Name -contains 'dimensionFilters'
+            ) {
+                throw "Grafana OS-disk target in panel $($Expectation.GrafanaId) must be labeled and must not filter by LUN."
+            }
+            foreach ($Target in $DiskPanel.targets) {
+                $MetricResources = @($Target.azureMonitor.resources)
+                if (
+                    $Target.queryType -ne 'Azure Monitor' -or
+                    $Target.azureMonitor.aggregation -ne 'Maximum' -or
+                    $Target.azureMonitor.metricNamespace -ne 'Microsoft.Compute/virtualMachines' -or
+                    $Target.subscription -ne '$subscription' -or
+                    $MetricResources.Count -ne 1 -or
+                    $MetricResources[0].subscription -ne '$subscription' -or
+                    $MetricResources[0].resourceGroup -ne '$resourceGroup' -or
+                    $MetricResources[0].resourceName -ne '$nativeVm'
+                ) {
+                    throw "Grafana disk panel $($Expectation.GrafanaId) must use peak platform metrics for the selected VM."
+                }
+            }
+            if ($DiskPanel.type -eq 'timeseries') {
+                $LunFilters = @($DataTargets[0].azureMonitor.dimensionFilters)
+                if (
+                    $LunFilters.Count -ne 1 -or
+                    $LunFilters[0].dimension -ne 'LUN' -or
+                    $LunFilters[0].operator -ne 'eq' -or
+                    @($LunFilters[0].filters).Count -ne 1 -or
+                    $LunFilters[0].filters[0] -ne '*'
+                ) {
+                    throw "Grafana data-disk trend $($Expectation.GrafanaId) must preserve all LUNs."
+                }
+            }
+            else {
+                if (
+                    $DataTargets[0].azureMonitor.alias -ne 'Data disk' -or
+                    $DiskPanel.options.reduceOptions.calcs -notcontains 'max' -or
+                    $DiskPanel.fieldConfig.defaults.noValue -ne 'No data'
+                ) {
+                    throw "Grafana disk tile $($Expectation.GrafanaId) must preserve the peak data-disk value and identify missing data."
+                }
+            }
+
+            foreach ($DashboardWorkbook in @($Workbook, $FreeWorkbook)) {
+                $DiskItems = @($DashboardWorkbook.items | Where-Object { $_.name -eq $Expectation.WorkbookName })
+                if ($DiskItems.Count -ne 1) {
+                    throw "Each Workbook must contain one '$($Expectation.WorkbookName)' item."
+                }
+                $DiskItem = $DiskItems[0].content
+                $OsMetrics = @($DiskItem.metrics | Where-Object { $_.metric -eq "microsoft.compute/virtualmachines--$OsMetricName" })
+                $DataMetrics = @($DiskItem.metrics | Where-Object { $_.metric -eq "microsoft.compute/virtualmachines--$DataMetricName" })
+                if (
+                    @($DiskItem.metrics).Count -ne 2 -or
+                    $OsMetrics.Count -ne 1 -or
+                    $DataMetrics.Count -ne 1 -or
+                    $OsMetrics[0].aggregation -ne 3 -or
+                    $OsMetrics[0].PSObject.Properties.Name -contains 'splitBy' -or
+                    $DataMetrics[0].aggregation -ne 3 -or
+                    $DataMetrics[0].splitBy -ne 'LUN' -or
+                    $DataMetrics[0].splitByLimit -ne 50 -or
+                    $DiskItem.resourceParameter -ne 'VirtualMachines' -or
+                    $DiskItem.resourceIds -notcontains '{VirtualMachines}' -or
+                    $DiskItem.timeContextFromParameter -ne 'TimeRange'
+                ) {
+                    throw "Workbook item '$($Expectation.WorkbookName)' must show separate peak OS-disk and per-LUN data-disk metrics for the selected VM and time range."
+                }
+            }
+        }
+
         $GrafanaTargets = @(
             $Grafana.panels |
                 ForEach-Object { $_.targets } |

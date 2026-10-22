@@ -74,8 +74,8 @@ consecutive minutes as throttling):
 
 | Indicator | Source metric | Meaning when high |
 |-----------|---------------|-------------------|
-| **DISK — IOPS** | Data Disk IOPS Consumed Percentage (worst disk) | An individual data disk is hitting its own provisioned IOPS limit |
-| **DISK — Bandwidth** | Data Disk Bandwidth Consumed Percentage (worst disk) | An individual data disk is hitting its own provisioned bandwidth limit |
+| **DISK — IOPS** | OS Disk and Data Disk IOPS Consumed Percentage | The OS disk or an individual data disk is hitting its provisioned IOPS limit |
+| **DISK — Bandwidth** | OS Disk and Data Disk Bandwidth Consumed Percentage | The OS disk or an individual data disk is hitting its provisioned bandwidth limit |
 | **VM SKU — IOPS** | VM Cached/Uncached IOPS Consumed Percentage | The VM is hitting its aggregate IOPS limit across all disks |
 | **VM SKU — Bandwidth** | VM Cached/Uncached Bandwidth Consumed Percentage | The VM is hitting its aggregate bandwidth limit across all disks |
 
@@ -84,17 +84,25 @@ consecutive minutes as throttling):
 * **A VM SKU indicator is red/near 100%** &rarr; resize the VM.
 * **Both high** &rarr; the disk is saturating and rolling up to the VM limit too.
 
-In Grafana the DISK indicator rolls up the worst data disk into a single threshold-colored
-value; in the Workbook the DISK charts plot **one line per LUN**, so you can already see which
-disk is saturating. The VM SKU indicators show cached and uncached separately, since
+In Grafana each DISK indicator shows separate **OS disk** and **Data disk** values. The
+Data disk value rolls up the worst data disk; the OS disk value uses its own metric.
+In the Workbook the DISK charts plot the OS disk separately alongside **one line per
+data-disk LUN**, so you can see which disk is saturating. The VM SKU indicators show cached and uncached separately, since
 they are distinct VM ceilings. **These indicators show the peak over the selected time range —
 the worst moment, not the current state; narrow the time range to see current activity.**
 
+VMs with only an OS disk do not produce data-disk series, but can still populate the
+OS-disk series. These are native platform metrics; no guest agent or VM Insights setup is
+required. Metric availability depends on the VM and disk configuration. Missing or
+unsupported metrics are not zero utilization. The optional six metric alerts remain
+data-disk and VM-SKU alerts; this display change does not add OS-disk alerts.
+
 ### 2. Detailed throttling trends
 
-Time-series charts to pinpoint *when* throttling happened and *which* LUN: Data Disk
-IOPS/Bandwidth consumed by LUN, VM cached vs uncached IOPS/Bandwidth, and Data Disk
-Latency. Series are split by Azure data-disk LUN, not by guest drive letter. Data Disk
+Time-series charts to pinpoint *when* throttling happened and *which* disk: OS Disk
+IOPS/Bandwidth consumed alongside Data Disk IOPS/Bandwidth consumed by LUN, VM cached
+vs uncached IOPS/Bandwidth, and Data Disk Latency. The OS disk has no LUN dimension.
+Data-disk series are split by Azure LUN, not by guest drive letter. Data Disk
 Latency is a preview metric that requires SCSI-attached disks and is unavailable for
 NVMe-attached disks.
 
