@@ -1,7 +1,7 @@
 ---
 title: Azure VM Disk Observability
 description: Azure Workbook and Managed Grafana demo for per-disk VM performance and capacity
-ms.date: 2026-09-30
+ms.date: 2026-10-22
 ms.topic: tutorial
 ---
 
@@ -24,6 +24,13 @@ The deployment can also create six Azure Monitor metric alerts for the selected 
 Azure VM. They notify an email Action Group when any data-disk IOPS/bandwidth or VM
 cached/uncached IOPS/bandwidth consumed-percentage metric reaches 100%. Every notification
 identifies the VM. Data-disk notifications also identify the affected LUN.
+
+## Recent changes
+
+The 2026-10-22 update adds OS-disk IOPS and bandwidth consumed-percentage metrics to
+the diagnosis panels and detailed trends in both Azure Workbooks and Managed Grafana.
+OS-disk and data-disk values are shown separately, including on VMs with no data disks.
+See the [changelog](CHANGELOG.md) for the change history, scope, and validation details.
 
 ## Quick start
 
@@ -87,15 +94,23 @@ consecutive minutes as throttling):
 In Grafana each DISK indicator shows separate **OS disk** and **Data disk** values. The
 Data disk value rolls up the worst data disk; the OS disk value uses its own metric.
 In the Workbook the DISK charts plot the OS disk separately alongside **one line per
-data-disk LUN**, so you can see which disk is saturating. The VM SKU indicators show cached and uncached separately, since
-they are distinct VM ceilings. **These indicators show the peak over the selected time range —
-the worst moment, not the current state; narrow the time range to see current activity.**
+data-disk LUN**, so you can see which disk is saturating. The VM SKU indicators show cached
+and uncached separately, since they are distinct VM ceilings. **These indicators show the
+peak over the selected time range, not the current state; narrow the time range to see
+current activity.**
 
 VMs with only an OS disk do not produce data-disk series, but can still populate the
 OS-disk series. These are native platform metrics; no guest agent or VM Insights setup is
 required. Metric availability depends on the VM and disk configuration. Missing or
 unsupported metrics are not zero utilization. The optional six metric alerts remain
 data-disk and VM-SKU alerts; this display change does not add OS-disk alerts.
+
+If a VM's data-disk panels are empty, check its **Disks** page in the Azure portal. A VM
+with no attached data disks has no data-disk LUNs to report. Its OS-disk series can still
+show activity. To check that series independently, open the VM's **Metrics** page and
+select **OS Disk IOPS Consumed Percentage** or **OS Disk Bandwidth Consumed Percentage**
+over the same time range. Refresh open Workbook and Grafana tabs after publishing an
+updated dashboard definition.
 
 ### 2. Detailed throttling trends
 
@@ -125,6 +140,10 @@ actual peak usage against the provisioned maximums. In Grafana, **Peak total use
 (all disks)** tiles sum the read + write across every LUN at each moment and show the peak, for a
 single used-vs-allowed number. Usage is per Azure data-disk LUN; because these metrics are only
 emitted per LUN, the charts split by LUN rather than showing a single VM total.
+
+These absolute-usage charts and the Grafana tiles labeled **all disks** currently cover
+attached **data disks only**; they do not include the OS disk. OS-disk support in the
+2026-10-22 update applies to the consumed-percentage diagnosis panels and trends.
 
 A **Disk read vs write activity** section then breaks the same free metrics into separate
 read and write throughput and IOPS charts per LUN, to reveal the workload's read/write mix
